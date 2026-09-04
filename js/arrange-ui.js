@@ -1,5 +1,4 @@
 import{state,$,$$,markDirty}from'./state.js';
-import{ensureAudio,stopAudio,playbackWindow}from'./audio.js';
 import{firstDownbeatIndex,snapTrackOffset,alignByMarkers}from'./arrangement.js';
 
 const style=document.createElement('style');
@@ -87,23 +86,7 @@ function overrideMove(){
   }
 }
 
-function playAudition(){
-  if(state.playing){stopAudio();$('#play').textContent='▶ PLAY';return false}
-  const ctx=ensureAudio();if(ctx.state==='suspended')ctx.resume();
-  const solo=state.tracks.some(t=>t.solo),eligible=state.tracks.filter(t=>(t.renderedBuffer||t.buffer)&&!t.mute&&(!solo||t.solo));
-  if(!eligible.length)return false;
-  const base=ctx.currentTime+.04;state.sources=[];let last=null,lastEnd=-1;
-  for(const t of eligible){const playable=t.renderedBuffer||t.buffer,w=playbackWindow(t.renderedOffset??0,playable.duration);if(w.remaining<=0)continue;const src=ctx.createBufferSource(),gain=ctx.createGain();src.buffer=playable;gain.gain.value=.82/Math.sqrt(Math.max(1,eligible.length));src.connect(gain).connect(ctx.destination);src.start(base+w.start,w.sourceOffset,w.remaining);state.sources.push(src);if(w.end>lastEnd){lastEnd=w.end;last=src}}
-  if(!state.sources.length)return false;state.playing=true;$('#play').textContent='❚❚ STOP';if(last)last.onended=()=>{if(state.playing){stopAudio();$('#play').textContent='▶ PLAY'}};return true;
-}
-
-function overrideTransport(){
-  const play=$('#play'),stop=$('#stop');
-  if(play)play.onclick=playAudition;
-  if(stop)stop.onclick=()=>{stopAudio();$('#play').textContent='▶ PLAY'};
-}
-
-addSnapControl();addTrackTools();overrideMove();overrideTransport();
+addSnapControl();addTrackTools();overrideMove();
 if($('#alignB')){$('#alignB').onclick=alignSelected;$('#alignB').title='Align the chosen B marker to the chosen A marker and follow A’s edited grid'}
 
 const observer=new MutationObserver(()=>refreshAlignDecor());
