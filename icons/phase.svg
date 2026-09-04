@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="EchoVerse Phase">
+  <rect width="512" height="512" rx="108" fill="#0b0f14"/>
+  <path d="M96 256h64l28-86 46 172 44-132 30 46h108" fill="none" stroke="#66b5a8" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="96" cy="256" r="12" fill="#c6a66b"/>
+  <circle cx="416" cy="256" r="12" fill="#c6a66b"/>
+</svg>
