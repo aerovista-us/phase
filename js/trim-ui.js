@@ -69,6 +69,7 @@ function installControls(){
 
 function keyboardClick(id){const b=$(id);if(!b)return;b.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerId:1,pointerType:'mouse'}));b.click()}
 document.addEventListener('click',e=>{const marker=e.target.closest?.('.marker');if(marker){selectTrack(+marker.dataset.track);return}const lane=e.target.closest?.('.lane');if(lane&&state.mode==='select')selectTrack(+lane.id.replace('lane-',''));const head=e.target.closest?.('.track-head');if(head&&!e.target.closest('button,input,select')){const lane2=head.parentElement?.querySelector('.lane');if(lane2)selectTrack(+lane2.id.replace('lane-',''))}},true);
+document.addEventListener('change',e=>{const input=e.target;if(!input?.id?.startsWith('file-')||!input.files?.length)return;const id=+input.id.slice(5),t=state.tracks[id];if(!t)return;t.trimIn=0;t.trimOut=null;state.activeTrackId=id;setTimeout(renderAll,0)},true);
 window.addEventListener('keydown',e=>{if(e.target.matches('input,select,textarea')||e.ctrlKey||e.metaKey||e.altKey)return;if(e.code==='KeyI'){e.preventDefault();keyboardClick('#setTrimIn')}if(e.code==='KeyO'){e.preventDefault();keyboardClick('#setTrimOut')}});
 window.addEventListener('resize',renderAll);window.addEventListener('phase:project-applied',()=>setTimeout(renderAll,0));window.addEventListener('phase:history-applied',()=>setTimeout(renderAll,0));
 installControls();renderAll();
