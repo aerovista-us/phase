@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { detectBeatGrid } from '../js/analysis.js';
+import { detectBeatGrid, detectKey } from '../js/analysis.js';
 
 function synthBeatTrack({sr=8000,seconds=24,bpm=90,offset=.25}={}){
   const n=Math.floor(sr*seconds),ch=new Float32Array(n),beat=60/bpm;
@@ -15,4 +15,12 @@ test('detects a 90 BPM four-four pulse and kick-led downbeat',()=>{
   assert.ok(result.beats.length>25);
   assert.equal(result.downbeatPhase,0);
   assert.ok(Math.abs(result.beats[0].time-.25)<.12,`first beat ${result.beats[0].time}`);
+});
+
+test('detects a sustained C major triad',()=>{
+  const sr=8000,seconds=8,n=sr*seconds,ch=new Float32Array(n),freqs=[261.6256,329.6276,391.9954];
+  for(let i=0;i<n;i++){const t=i/sr;ch[i]=freqs.reduce((s,f)=>s+Math.sin(2*Math.PI*f*t),0)/3*.7}
+  const key=detectKey({numberOfChannels:1,sampleRate:sr,getChannelData:()=>ch});
+  assert.equal(key.mode,'major');
+  assert.equal(key.root,0,`key ${key.name}`);
 });
