@@ -26,7 +26,7 @@ function fmtTime(t){const m=Math.floor(Math.max(0,t)/60),s=Math.max(0,t)-m*60;re
 function eligible(){const solo=state.tracks.some(t=>t.solo);return state.tracks.filter(t=>(t.renderedBuffer||t.buffer)&&!t.mute&&(!solo||t.solo))}
 function trackStart(t){return Number.isFinite(t.renderedOffset)?t.renderedOffset:0}
 
-function updateReadout(){const el=$('#transportTime');if(el)el.textContent=fmtTime(state.playheadTime);const loop=$('#loopToggle');if(loop){loop.classList.toggle('active',state.loopEnabled);loop.textContent=state.loopEnabled?'LOOP ON':'LOOP OFF'}}
+function updateReadout(){const el=$('#transportTime');if(el)el.textContent=fmtTime(state.playheadTime);const loop=$('#loopToggle');if(loop){loop.classList.toggle('active',state.loopEnabled);loop.textContent=state.loopEnabled?'LOOP ON':'LOOP OFF'}const size=$('#loopBars');if(size)size.value=String(state.loopBars||8)}
 function ensureVisuals(){
   const hosts=[$('.ruler-lines'),...$$('.lane')].filter(Boolean);
   hosts.forEach(host=>{
@@ -104,9 +104,10 @@ window.addEventListener('keydown',e=>{
   if(e.code==='ArrowLeft'||e.code==='ArrowRight'){e.preventDefault();const beat=60/Math.max(1,state.bpm),dir=e.code==='ArrowRight'?1:-1,was=state.transportActive;stopTransport({keep:false});setPlayhead(state.playheadTime+dir*beat);if(state.loopEnabled)recalcLoop();if(was)playFromPlayhead()}
 });
 
+function restoreTransport(){installControls();bindRuler();if(state.loopEnabled)recalcLoop();else paintVisuals()}
 function tick(){
   if(state.transportActive&&state.playing&&state.audioCtx){const elapsed=Math.max(0,state.audioCtx.currentTime-baseCtx),next=baseProject+elapsed;if(Number.isFinite(playLimit)&&next>=playLimit)setPlayhead(playLimit,{scroll:true});else setPlayhead(next,{scroll:true})}
   else paintVisuals();requestAnimationFrame(tick);
 }
 
-installControls();bindRuler();window.addEventListener('resize',()=>{installControls();bindRuler();paintVisuals()});window.addEventListener('phase:project-applied',()=>{setTimeout(()=>{installControls();bindRuler();paintVisuals()},0)});tick();
+installControls();bindRuler();window.addEventListener('resize',()=>{installControls();bindRuler();paintVisuals()});window.addEventListener('phase:project-applied',()=>setTimeout(restoreTransport,0));window.addEventListener('phase:history-applied',()=>setTimeout(restoreTransport,0));tick();
