@@ -65,3 +65,7 @@ export function editableFingerprint(state){
   s.tracks.forEach(t=>{delete t.name;delete t.fileName;delete t.analysis;});
   return JSON.stringify(s);
 }
+
+export function renderFingerprint(state){
+  return JSON.stringify((state.tracks||[]).map(t=>({pitch:num(t.pitch,0),timelineOffset:num(t.timelineOffset,0),markers:cloneMarkers(t.markers).map(m=>({sourceTime:m.sourceTime,targetTime:m.targetTime}))})));
+}
