@@ -1,0 +1,9 @@
+{
+  "name": "echoverse-phase",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "check": "node --check js/state.js && node --check js/audio.js && node --check js/analysis.js && node --check js/warp.js && node --check js/render-core.js && node --check js/render-worker.js && node --check js/render.js && node --check js/app.js"
+  }
+}
