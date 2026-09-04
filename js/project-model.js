@@ -24,6 +24,22 @@ export function validateProject(data){
   return data;
 }
 
+export function applyTrackSnapshot(track,src,{applyMarkers=true}={}){
+  if(!track||!src)return track;
+  track.fileName=src.fileName||track.fileName||null;
+  track.name=src.name||track.name;
+  track.sourceBpm=clamp(num(src.sourceBpm,track.sourceBpm||120),40,240);
+  track.pitch=clamp(num(src.pitch,track.pitch||0),-24,24);
+  track.timelineOffset=num(src.timelineOffset,track.timelineOffset||0);
+  track.gridMode=src.gridMode||track.gridMode||'manual';
+  track.alignMarker=Number.isInteger(src.alignMarker)?src.alignMarker:track.alignMarker;
+  track.gainDb=clamp(num(src.gainDb,track.gainDb||0),-24,6);
+  track.mute=!!src.mute;track.solo=!!src.solo;
+  if(src.analysis)track.analysis={...(track.analysis||{}),...src.analysis};
+  if(applyMarkers&&Array.isArray(src.markers)&&src.markers.length)track.markers=cloneMarkers(src.markers);
+  return track;
+}
+
 export function applyProjectSnapshot(state,data,{loadedOnly=true}={}){
   validateProject(data);
   state.bpm=clamp(num(data.bpm,state.bpm||120),40,240);
@@ -32,18 +48,7 @@ export function applyProjectSnapshot(state,data,{loadedOnly=true}={}){
   if(typeof data.snapMode==='string')state.snapMode=data.snapMode;
   data.tracks.forEach((src,i)=>{
     const t=state.tracks?.[i];if(!t)return;
-    const canApply=!loadedOnly||!!t.buffer;
-    t.fileName=src.fileName||t.fileName||null;
-    t.name=src.name||t.name;
-    t.sourceBpm=clamp(num(src.sourceBpm,t.sourceBpm||120),40,240);
-    t.pitch=clamp(num(src.pitch,t.pitch||0),-24,24);
-    t.timelineOffset=num(src.timelineOffset,t.timelineOffset||0);
-    t.gridMode=src.gridMode||t.gridMode||'manual';
-    t.alignMarker=Number.isInteger(src.alignMarker)?src.alignMarker:t.alignMarker;
-    t.gainDb=clamp(num(src.gainDb,t.gainDb||0),-24,6);
-    t.mute=!!src.mute;t.solo=!!src.solo;
-    if(src.analysis)t.analysis={...(t.analysis||{}),...src.analysis};
-    if(canApply&&Array.isArray(src.markers)&&src.markers.length)t.markers=cloneMarkers(src.markers);
+    applyTrackSnapshot(t,src,{applyMarkers:!loadedOnly||!!t.buffer});
   });
   return state;
 }
