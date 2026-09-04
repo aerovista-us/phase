@@ -1,5 +1,5 @@
 import{state,$,markDirty}from'./state.js';
-import{snapshotProject,applyProjectSnapshot,editableFingerprint}from'./project-model.js';
+import{snapshotProject,applyProjectSnapshot,editableFingerprint,renderFingerprint}from'./project-model.js';
 
 const MAX=60,undo=[],redo=[];
 let before=null,beforeFp='';
@@ -32,7 +32,10 @@ function commit(){
 }
 
 function apply(snap,label){
-  applyProjectSnapshot(state,snap,{loadedOnly:true});syncInputs();markDirty();$('#engineState').textContent=`${label} · VISUAL CHANGES PENDING`;
+  const wasDirty=state.dirty,renderChanged=renderFingerprint(state)!==renderFingerprint(snap);
+  applyProjectSnapshot(state,snap,{loadedOnly:true});syncInputs();
+  if(wasDirty||renderChanged)markDirty();
+  $('#engineState').textContent=state.dirty?`${label} · VISUAL CHANGES PENDING`:`${label} · APPLIED`;
 }
 
 function doUndo(){
@@ -46,10 +49,10 @@ function doRedo(){
 
 function trackedTarget(el){
   if(!el||!el.closest)return false;
-  if(el.closest('#undoPhase,#redoPhase,#saveMap,#loadMap,#restoreSession,#play,#stop,#auditionAlign,#render,#exportWav,#install,#analyze,#loopToggle'))return false;
+  if(el.closest('#undoPhase,#redoPhase,#saveMap,#loadMap,#restoreSession,#play,#stop,#auditionAlign,#render,#exportWav,#exportLoop,#install,#analyze,#loopToggle'))return false;
   if(el.closest('.marker,.lane'))return true;
   if(el.matches('input[id^="bpm-"],input[id^="pitch-"],input[id^="offset-"],input[id^="gain-"],#projectBpm,#phraseSnap'))return true;
-  if(el.closest('[id^="alignSet-"],#alignB,#matchKey,#resetWarp'))return true;
+  if(el.closest('[id^="alignSet-"],#alignB,#matchKey,#resetWarp,#setTrimIn,#setTrimOut,#clearTrim'))return true;
   return false;
 }
 
