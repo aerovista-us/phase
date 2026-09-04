@@ -13,7 +13,7 @@
 <body>
 <div class="app">
   <header class="topbar">
-    <div class="brand"><span class="ev">ECHOVERSE AUDIO</span><span class="name">PHASE</span><span class="tag">ALPHA 0.4</span></div>
+    <div class="brand"><span class="ev">ECHOVERSE AUDIO</span><span class="name">PHASE</span><span class="tag">ALPHA 0.5</span></div>
     <div class="transport"><button class="btn primary" id="play">▶ PLAY</button><button class="btn" id="stop">■ STOP</button></div>
     <label class="field">PROJECT BPM <input id="projectBpm" type="number" min="40" max="240" step="0.01" value="120"></label>
     <div class="spacer"></div>
@@ -42,7 +42,8 @@
       <div class="card"><h3>Architecture</h3><div class="meta"><span>Audio</span><span>LAST RENDER</span><span>Visual</span><span>LIVE EDIT MAP</span><span>Warp</span><span>NONDESTRUCTIVE</span><span>Pitch</span><span>SEPARATE</span></div></div>
       <div class="card"><h3>Render state</h3><div class="status-pill"><span class="dot" id="renderDot"></span><span id="renderState">AUDIO CURRENT</span></div></div>
       <div class="card"><h3>Selected marker</h3><div class="meta"><span>Track</span><span id="selTrack">—</span><span>Beat</span><span id="selBeat">—</span><span>Source</span><span id="selSource">—</span><span>Target</span><span id="selTarget">—</span></div></div>
-      <div class="card"><h3>Workflow</h3><div class="sub">Load two tracks → Analyze BPM / downbeats / key → correct weak ticks with Grid Edit → Shift-click to redefine Bar 1 → lock an anchor → warp later beats → Align B to A → Match Key when useful → Render Changes → Export WAV.</div></div>
+      <div class="card"><h3>Workflow</h3><div class="sub">Load → Analyze → choose an ALIGN point on each track → align exact musical moments → use Beat / Bar / 8 / 16 / 32-bar MOVE snap → correct the grid or warp where needed → Render Changes → Export WAV.</div></div>
+      <div class="card"><h3>Audition</h3><div class="sub">MUTE and SOLO are playback-only helpers. They do not alter the source or render map, so you can check each layer quickly while arranging.</div></div>
       <div class="card"><h3>Render model</h3><div class="sub">Dragging stays visual-only and instant. Playback keeps using the last completed audio until Render Changes runs the pitch-preserving worker. Source audio is never overwritten.</div></div>
     </aside>
     <section class="timeline" id="timeline">
@@ -51,7 +52,7 @@
     </section>
   </main>
 
-  <footer class="footer"><span>PHASE 0.4</span><span>LOCAL-FIRST PWA</span><span id="engineState">ENGINE READY</span><span class="right"><span class="kbd">W</span> warp &nbsp; <span class="kbd">A</span> anchor &nbsp; <span class="kbd">G</span> grid edit &nbsp; <span class="kbd">Shift+Click</span> bar 1 &nbsp; <span class="kbd">Space</span> play</span></footer>
+  <footer class="footer"><span>PHASE 0.5</span><span>LOCAL-FIRST PWA</span><span id="engineState">ENGINE READY</span><span class="right"><span class="kbd">W</span> warp &nbsp; <span class="kbd">A</span> anchor &nbsp; <span class="kbd">G</span> grid edit &nbsp; <span class="kbd">M</span> move &nbsp; <span class="kbd">Space</span> play</span></footer>
 </div>
 <input id="mapFile" type="file" accept="application/json,.json" hidden>
 <script>
@@ -60,5 +61,6 @@ if ('serviceWorker' in navigator) {
 }
 </script>
 <script type="module" src="./js/app.js"></script>
+<script type="module" src="./js/arrange-ui.js"></script>
 </body>
 </html>
