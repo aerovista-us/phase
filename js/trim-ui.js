@@ -2,7 +2,7 @@ import{state,$,$$}from'./state.js';
 import{displayDuration}from'./warp.js';
 
 state.activeTrackId=Number.isInteger(state.activeTrackId)?state.activeTrackId:0;
-for(const t of state.tracks){t.trimIn=Math.max(0,Number(t.trimIn)||0);t.trimOut=Number.isFinite(Number(t.trimOut))?Math.max(t.trimIn,Number(t.trimOut)):null}
+for(const t of state.tracks){t.trimIn=Math.max(0,Number(t.trimIn)||0);t.trimOut=t.trimOut!=null&&Number.isFinite(Number(t.trimOut))?Math.max(t.trimIn,Number(t.trimOut)):null}
 
 const style=document.createElement('style');style.textContent=`
 .track.active-track .track-head{box-shadow:inset 3px 0 0 #c6a66b}
@@ -16,8 +16,8 @@ const style=document.createElement('style');style.textContent=`
 document.head.appendChild(style);
 
 const clamp=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
-function localDuration(t){return Math.max(.001,t?.renderedBuffer?.duration||displayDuration(t)||t?.buffer?.duration||0)}
-function activeTrack(){const fromMarker=state.selected?.track;if(Number.isInteger(fromMarker)&&state.tracks[fromMarker])state.activeTrackId=fromMarker;return state.tracks[state.activeTrackId]||state.tracks[0]}
+function localDuration(t){return Math.max(.001,displayDuration(t)||t?.renderedBuffer?.duration||t?.buffer?.duration||0)}
+function activeTrack(){return state.tracks[state.activeTrackId]||state.tracks[0]}
 function fmt(t){const m=Math.floor(Math.max(0,t)/60),s=Math.max(0,t)-m*60;return`${m}:${s.toFixed(2).padStart(5,'0')}`}
 function localAtPlayhead(t){return clamp((Number(state.playheadTime)||0)-(Number(t.timelineOffset)||0),0,localDuration(t))}
 
