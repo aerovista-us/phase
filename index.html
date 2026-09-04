@@ -43,7 +43,7 @@
       <div class="card"><h3>Render state</h3><div class="status-pill"><span class="dot" id="renderDot"></span><span id="renderState">AUDIO CURRENT</span></div></div>
       <div class="card"><h3>Selected marker</h3><div class="meta"><span>Track</span><span id="selTrack">—</span><span>Beat</span><span id="selBeat">—</span><span>Source</span><span id="selSource">—</span><span>Target</span><span id="selTarget">—</span></div></div>
       <div class="card"><h3>Workflow</h3><div class="sub">Load → Analyze → choose an ALIGN point on each track → align exact musical moments → use Beat / Bar / 8 / 16 / 32-bar MOVE snap → correct the grid or warp where needed → Render Changes → Export WAV.</div></div>
-      <div class="card"><h3>Audition</h3><div class="sub">MUTE and SOLO are playback-only helpers. They do not alter the source or render map, so you can check each layer quickly while arranging.</div></div>
+      <div class="card"><h3>Audition</h3><div class="sub">MUTE and SOLO are playback-only helpers. AUDITION ALIGN plays a short window around the chosen alignment point once the audio is current.</div></div>
       <div class="card"><h3>Render model</h3><div class="sub">Dragging stays visual-only and instant. Playback keeps using the last completed audio until Render Changes runs the pitch-preserving worker. Source audio is never overwritten.</div></div>
     </aside>
     <section class="timeline" id="timeline">
@@ -62,5 +62,6 @@ if ('serviceWorker' in navigator) {
 </script>
 <script type="module" src="./js/app.js"></script>
 <script type="module" src="./js/arrange-ui.js"></script>
+<script type="module" src="./js/audition.js"></script>
 </body>
 </html>
