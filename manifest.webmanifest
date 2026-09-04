@@ -2,8 +2,8 @@
   "name": "EchoVerse Phase",
   "short_name": "Phase",
   "description": "Local-first audio arrange, warp, sync and remix workstation from EchoVerse Audio.",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#0b0f14",
@@ -11,7 +11,7 @@
   "categories": ["music", "audio", "productivity"],
   "icons": [
     {
-      "src": "/icons/phase.svg",
+      "src": "./icons/phase.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
