@@ -10,7 +10,7 @@ export function renderTrack(track, onProgress) {
   if (!track?.buffer) return Promise.reject(new Error('Track has no audio'));
   const channelCopies = Array.from({ length: track.buffer.numberOfChannels }, (_, ch) => track.buffer.getChannelData(ch).slice());
   const transfers = channelCopies.map(ch => ch.buffer);
-  const worker = new Worker('/js/render-worker.js', { type: 'module' });
+  const worker = new Worker(new URL('./render-worker.js', import.meta.url), { type: 'module' });
   return new Promise((resolve, reject) => {
     worker.onmessage = event => {
       const msg = event.data;
