@@ -1,5 +1,6 @@
 const clamp=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
 const num=(v,fallback=0)=>Number.isFinite(Number(v))?Number(v):fallback;
+const finiteOrNull=v=>v!=null&&Number.isFinite(Number(v))?Number(v):null;
 const cloneMarkers=markers=>Array.isArray(markers)?markers.map((m,i)=>({beat:Number.isInteger(m.beat)?m.beat:i,sourceTime:num(m.sourceTime),targetTime:num(m.targetTime),downbeat:!!m.downbeat,locked:!!m.locked,confidence:num(m.confidence,1)})):[];
 
 function analysisSummary(a){
@@ -14,7 +15,7 @@ export function snapshotProject(state){
     playheadTime:num(state.playheadTime,0),loopBars:num(state.loopBars,8),loopEnabled:!!state.loopEnabled,
     tracks:(state.tracks||[]).map(t=>({
       label:t.label,name:t.name,fileName:t.file?.name||t.fileName||null,sourceBpm:num(t.sourceBpm,120),pitch:num(t.pitch,0),timelineOffset:num(t.timelineOffset,0),
-      trimIn:Math.max(0,num(t.trimIn,0)),trimOut:Number.isFinite(Number(t.trimOut))?Math.max(0,Number(t.trimOut)):null,
+      trimIn:Math.max(0,num(t.trimIn,0)),trimOut:finiteOrNull(t.trimOut)==null?null:Math.max(0,finiteOrNull(t.trimOut)),
       gridMode:t.gridMode||'manual',alignMarker:Number.isInteger(t.alignMarker)?t.alignMarker:null,gainDb:num(t.gainDb,0),mute:!!t.mute,solo:!!t.solo,
       analysis:analysisSummary(t.analysis),markers:cloneMarkers(t.markers)
     }))
@@ -34,7 +35,7 @@ export function applyTrackSnapshot(track,src,{applyMarkers=true}={}){
   track.pitch=clamp(num(src.pitch,track.pitch||0),-24,24);
   track.timelineOffset=num(src.timelineOffset,track.timelineOffset||0);
   track.trimIn=Math.max(0,num(src.trimIn,track.trimIn||0));
-  track.trimOut=Number.isFinite(Number(src.trimOut))?Math.max(track.trimIn,Number(src.trimOut)):null;
+  const out=finiteOrNull(src.trimOut);track.trimOut=out==null?null:Math.max(track.trimIn,out);
   track.gridMode=src.gridMode||track.gridMode||'manual';
   track.alignMarker=Number.isInteger(src.alignMarker)?src.alignMarker:track.alignMarker;
   track.gainDb=clamp(num(src.gainDb,track.gainDb||0),-24,6);
