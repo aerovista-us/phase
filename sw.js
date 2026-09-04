@@ -1,7 +1,7 @@
-const CACHE='echoverse-phase-shell-v8';
+const CACHE='echoverse-phase-shell-v9';
 const BASE=self.registration.scope;
 const asset=path=>new URL(path,BASE).href;
-const CORE=['./','./styles.css','./manifest.webmanifest','./icons/phase.svg','./js/state.js','./js/audio.js','./js/analysis.js','./js/warp.js','./js/arrangement.js','./js/render-core.js','./js/render-worker.js','./js/render.js','./js/export.js','./js/app.js','./js/arrange-ui.js'].map(asset);
+const CORE=['./','./styles.css','./manifest.webmanifest','./icons/phase.svg','./js/state.js','./js/audio.js','./js/analysis.js','./js/warp.js','./js/arrangement.js','./js/render-core.js','./js/render-worker.js','./js/render.js','./js/export.js','./js/app.js','./js/arrange-ui.js','./js/audition.js'].map(asset);
 
 self.addEventListener('install',event=>event.waitUntil(
   caches.open(CACHE).then(cache=>cache.addAll(CORE)).then(()=>self.skipWaiting())
