@@ -1,4 +1,4 @@
-function normalizeItem(item){return item?.buffer?item:{buffer:item,offset:0}}
+function normalizeItem(item){return item?.buffer?{gain:1,...item}:{buffer:item,offset:0,gain:1}}
 export async function renderMix(items, sampleRate = 44100) {
   const playable = items.map(normalizeItem).filter(x=>x.buffer);
   if (!playable.length) throw new Error('No audio to export');
@@ -14,7 +14,7 @@ export async function renderMix(items, sampleRate = 44100) {
     if(remaining<=0)continue;
     const source = off.createBufferSource(), gain = off.createGain();
     source.buffer = buffer;
-    gain.gain.value = perTrack;
+    gain.gain.value = perTrack*Math.max(0,Number.isFinite(item.gain)?item.gain:1);
     source.connect(gain).connect(master);
     source.start(Math.max(0,offset),sourceOffset,remaining);
   }
