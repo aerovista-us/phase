@@ -1,25 +1,12 @@
-function normalizeItem(item){return item?.buffer?{gain:1,...item}:{buffer:item,offset:0,gain:1}}
-export function mixRegionWindow(offset,bufferDuration,start,end){const trackStart=Number(offset)||0,trackEnd=trackStart+Math.max(0,Number(bufferDuration)||0),r0=Math.max(0,Number(start)||0),r1=Math.max(r0,Number(end)||0),o0=Math.max(r0,trackStart),o1=Math.min(r1,trackEnd);if(o1<=o0)return null;return{delay:o0-r0,sourceOffset:o0-trackStart,duration:o1-o0}}
+function normalizeItem(item){return item?.buffer?{gain:1,sourceIn:0,sourceOut:null,...item}:{buffer:item,offset:0,gain:1,sourceIn:0,sourceOut:null}}
+export function mixRegionWindow(offset,bufferDuration,start,end,sourceIn=0,sourceOut=bufferDuration){const duration=Math.max(0,Number(bufferDuration)||0),clipIn=Math.max(0,Math.min(duration,Number(sourceIn)||0)),rawOut=sourceOut==null?duration:Number(sourceOut),clipOut=Math.max(clipIn,Math.min(duration,Number.isFinite(rawOut)?rawOut:duration)),trackStart=(Number(offset)||0)+clipIn,trackEnd=(Number(offset)||0)+clipOut,r0=Math.max(0,Number(start)||0),r1=Number.isFinite(Number(end))?Math.max(r0,Number(end)):Infinity,o0=Math.max(r0,trackStart),o1=Math.min(r1,trackEnd);if(o1<=o0)return null;return{delay:o0-r0,sourceOffset:clipIn+(o0-trackStart),duration:o1-o0}}
 
 export async function renderMix(items, sampleRate = 44100) {
-  const playable = items.map(normalizeItem).filter(x=>x.buffer);
-  if (!playable.length) throw new Error('No audio to export');
-  const duration = Math.max(...playable.map(x=>Math.max(0,x.offset||0)+Math.max(0,x.buffer.duration-Math.max(0,-(x.offset||0)))));
-  const length = Math.max(1, Math.ceil(duration * sampleRate));
-  const off = new OfflineAudioContext(2, length, sampleRate);
-  const master = off.createGain();
-  master.gain.value = 0.92;
-  master.connect(off.destination);
-  const perTrack = 1 / Math.max(1, playable.length);
-  for (const item of playable) {
-    const buffer=item.buffer,offset=item.offset||0,sourceOffset=Math.max(0,-offset),remaining=Math.max(0,buffer.duration-sourceOffset);
-    if(remaining<=0)continue;
-    const source = off.createBufferSource(), gain = off.createGain();
-    source.buffer = buffer;
-    gain.gain.value = perTrack*Math.max(0,Number.isFinite(item.gain)?item.gain:1);
-    source.connect(gain).connect(master);
-    source.start(Math.max(0,offset),sourceOffset,remaining);
-  }
+  const playable = items.map(normalizeItem).filter(x=>x.buffer),active=playable.map(item=>({item,w:mixRegionWindow(item.offset||0,item.buffer.duration,0,Infinity,item.sourceIn||0,item.sourceOut)})).filter(x=>x.w);
+  if (!active.length) throw new Error('No audio to export');
+  const duration=Math.max(...active.map(x=>x.w.delay+x.w.duration)),length=Math.max(1,Math.ceil(duration*sampleRate)),off=new OfflineAudioContext(2,length,sampleRate),master=off.createGain();master.gain.value=.92;master.connect(off.destination);
+  const perTrack=1/Math.max(1,active.length);
+  for(const {item,w} of active){const source=off.createBufferSource(),gain=off.createGain();source.buffer=item.buffer;gain.gain.value=perTrack*Math.max(0,Number.isFinite(item.gain)?item.gain:1);source.connect(gain).connect(master);source.start(w.delay,w.sourceOffset,w.duration)}
   return off.startRendering();
 }
 
@@ -27,7 +14,7 @@ export async function renderMixRegion(items,start,end,sampleRate=44100){
   const playable=items.map(normalizeItem).filter(x=>x.buffer),r0=Math.max(0,Number(start)||0),r1=Math.max(r0,Number(end)||0),duration=r1-r0;
   if(!playable.length)throw new Error('No audio to export');if(duration<=0)throw new Error('Region is empty');
   const length=Math.max(1,Math.ceil(duration*sampleRate)),off=new OfflineAudioContext(2,length,sampleRate),master=off.createGain();master.gain.value=.92;master.connect(off.destination);
-  const active=playable.map(item=>({item,w:mixRegionWindow(item.offset||0,item.buffer.duration,r0,r1)})).filter(x=>x.w),perTrack=1/Math.max(1,active.length);
+  const active=playable.map(item=>({item,w:mixRegionWindow(item.offset||0,item.buffer.duration,r0,r1,item.sourceIn||0,item.sourceOut)})).filter(x=>x.w),perTrack=1/Math.max(1,active.length);
   for(const {item,w} of active){const source=off.createBufferSource(),gain=off.createGain();source.buffer=item.buffer;gain.gain.value=perTrack*Math.max(0,Number.isFinite(item.gain)?item.gain:1);source.connect(gain).connect(master);source.start(w.delay,w.sourceOffset,w.duration)}
   return off.startRendering();
 }
