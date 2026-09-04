@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Phase — EchoVerse Audio</title>
+<meta name="theme-color" content="#111820">
+<meta name="description" content="EchoVerse Phase — local-first audio warp, sync and remix workstation.">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/phase.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><span class="ev">ECHOVERSE AUDIO</span><span class="name">PHASE</span><span class="tag">ALPHA 0.2</span></div>
+    <div class="transport"><button class="btn primary" id="play">▶ PLAY</button><button class="btn" id="stop">■ STOP</button></div>
+    <label class="field">PROJECT BPM <input id="projectBpm" type="number" min="40" max="240" step="0.01" value="120"></label>
+    <div class="spacer"></div>
+    <button class="btn" id="install" hidden>INSTALL</button>
+    <button class="btn" id="saveMap">SAVE MAP</button>
+    <button class="btn" id="loadMap">LOAD MAP</button>
+    <button class="btn" id="analyze">ANALYZE</button>
+    <button class="btn warn" id="render">⚡ RENDER CHANGES</button>
+  </header>
+
+  <div class="modebar">
+    <span class="label">TOOL</span>
+    <button class="mode active" data-mode="select">SELECT</button>
+    <button class="mode" data-mode="warp">WARP</button>
+    <button class="mode" data-mode="anchor">ANCHOR</button>
+    <span class="label section">GRID</span>
+    <button class="mode active" id="beatsToggle">BEATS</button>
+    <button class="mode active" id="downbeatsToggle">DOWNBEATS</button>
+    <button class="mode" id="alignB">ALIGN B → A</button>
+    <button class="mode" id="resetWarp">RESET WARP</button>
+  </div>
+
+  <main class="workspace">
+    <aside class="sidebar">
+      <div class="side-title">PHASE SESSION</div>
+      <div class="card"><h3>Architecture</h3><div class="meta"><span>Audio</span><span>LAST RENDER</span><span>Visual</span><span>LIVE EDIT MAP</span><span>Warp</span><span>NONDESTRUCTIVE</span><span>Pitch</span><span>SEPARATE</span></div></div>
+      <div class="card"><h3>Render state</h3><div class="status-pill"><span class="dot" id="renderDot"></span><span id="renderState">AUDIO CURRENT</span></div></div>
+      <div class="card"><h3>Selected marker</h3><div class="meta"><span>Track</span><span id="selTrack">—</span><span>Beat</span><span id="selBeat">—</span><span>Source</span><span id="selSource">—</span><span>Target</span><span id="selTarget">—</span></div></div>
+      <div class="card"><h3>Workflow</h3><div class="sub">Load two tracks → Analyze → Shift-click a beat to redefine Bar 1 → lock an anchor → drag a later beat in Warp mode → Align B to A when desired → Render Changes when the map is right.</div></div>
+      <div class="card"><h3>Alpha note</h3><div class="sub">Warp edits are intentionally visual-only for now. Playback stays on untouched source audio until the pitch-preserving render engine lands.</div></div>
+    </aside>
+    <section class="timeline" id="timeline">
+      <div class="ruler"><div class="ruler-lines"></div></div>
+      <div id="tracks"></div>
+    </section>
+  </main>
+
+  <footer class="footer"><span>PHASE 0.2</span><span>LOCAL-FIRST PWA</span><span id="engineState">ENGINE READY</span><span class="right"><span class="kbd">W</span> warp &nbsp; <span class="kbd">A</span> anchor &nbsp; <span class="kbd">Shift+Click</span> bar 1 &nbsp; <span class="kbd">Space</span> play</span></footer>
+</div>
+<input id="mapFile" type="file" accept="application/json,.json" hidden>
+<script type="module" src="/js/app.js"></script>
+</body>
+</html>
