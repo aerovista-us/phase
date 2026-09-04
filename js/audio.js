@@ -1,0 +1,6 @@
+import{state}from'./state.js';
+export function ensureAudio(){if(!state.audioCtx)state.audioCtx=new(window.AudioContext||window.webkitAudioContext)();return state.audioCtx}
+export function calcPeaks(buf,n=2400){const ch=buf.getChannelData(0),step=Math.max(1,Math.floor(ch.length/n)),out=new Float32Array(n);for(let i=0;i<n;i++){let p=0,start=i*step,end=Math.min(ch.length,start+step);for(let j=start;j<end;j++)p=Math.max(p,Math.abs(ch[j]));out[i]=p}return out}
+export async function decodeFile(file){const ctx=ensureAudio(),ab=await file.arrayBuffer();return ctx.decodeAudioData(ab.slice(0))}
+export function stopAudio(){state.sources.forEach(s=>{try{s.stop()}catch{}});state.sources=[];state.playing=false}
+export function playSources(onStop){if(state.playing){stopAudio();onStop?.();return false}const ctx=ensureAudio();if(ctx.state==='suspended')ctx.resume();state.sources=[];for(const t of state.tracks){if(!t.buffer)continue;const s=ctx.createBufferSource(),g=ctx.createGain();s.buffer=t.buffer;g.gain.value=.85;s.connect(g).connect(ctx.destination);s.start(ctx.currentTime+.04);state.sources.push(s)}if(!state.sources.length)return false;state.playing=true;state.sources[0].onended=()=>{if(state.playing){stopAudio();onStop?.()}};return true}
