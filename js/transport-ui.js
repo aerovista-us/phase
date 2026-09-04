@@ -56,7 +56,7 @@ function schedule(from,to=Infinity){
   stopTransport({keep:false});const tracks=eligible();if(!tracks.length)return false;
   const ctx=ensureAudio();if(ctx.state==='suspended')ctx.resume();const my=++token,base=ctx.currentTime+.025;state.sources=[];let last=null,lastEnd=-1;
   for(const t of tracks){
-    const buffer=t.renderedBuffer||t.buffer,w=projectPlaybackWindow(trackStart(t),buffer.duration,from,to);if(!w)continue;
+    const buffer=t.renderedBuffer||t.buffer,w=projectPlaybackWindow(trackStart(t),buffer.duration,from,to,t.trimIn||0,t.trimOut==null?buffer.duration:t.trimOut);if(!w)continue;
     const src=ctx.createBufferSource(),gain=ctx.createGain();src.buffer=buffer;gain.gain.value=.82*dbToGain(t.gainDb)/Math.sqrt(Math.max(1,tracks.length));src.connect(gain).connect(ctx.destination);src.start(base+w.delay,w.sourceOffset,w.duration);state.sources.push(src);
     const end=w.delay+w.duration;if(end>lastEnd){lastEnd=end;last=src}
   }
