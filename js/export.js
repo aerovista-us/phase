@@ -1,4 +1,6 @@
 function normalizeItem(item){return item?.buffer?{gain:1,...item}:{buffer:item,offset:0,gain:1}}
+export function mixRegionWindow(offset,bufferDuration,start,end){const trackStart=Number(offset)||0,trackEnd=trackStart+Math.max(0,Number(bufferDuration)||0),r0=Math.max(0,Number(start)||0),r1=Math.max(r0,Number(end)||0),o0=Math.max(r0,trackStart),o1=Math.min(r1,trackEnd);if(o1<=o0)return null;return{delay:o0-r0,sourceOffset:o0-trackStart,duration:o1-o0}}
+
 export async function renderMix(items, sampleRate = 44100) {
   const playable = items.map(normalizeItem).filter(x=>x.buffer);
   if (!playable.length) throw new Error('No audio to export');
@@ -18,6 +20,15 @@ export async function renderMix(items, sampleRate = 44100) {
     source.connect(gain).connect(master);
     source.start(Math.max(0,offset),sourceOffset,remaining);
   }
+  return off.startRendering();
+}
+
+export async function renderMixRegion(items,start,end,sampleRate=44100){
+  const playable=items.map(normalizeItem).filter(x=>x.buffer),r0=Math.max(0,Number(start)||0),r1=Math.max(r0,Number(end)||0),duration=r1-r0;
+  if(!playable.length)throw new Error('No audio to export');if(duration<=0)throw new Error('Region is empty');
+  const length=Math.max(1,Math.ceil(duration*sampleRate)),off=new OfflineAudioContext(2,length,sampleRate),master=off.createGain();master.gain.value=.92;master.connect(off.destination);
+  const active=playable.map(item=>({item,w:mixRegionWindow(item.offset||0,item.buffer.duration,r0,r1)})).filter(x=>x.w),perTrack=1/Math.max(1,active.length);
+  for(const {item,w} of active){const source=off.createBufferSource(),gain=off.createGain();source.buffer=item.buffer;gain.gain.value=perTrack*Math.max(0,Number.isFinite(item.gain)?item.gain:1);source.connect(gain).connect(master);source.start(w.delay,w.sourceOffset,w.duration)}
   return off.startRendering();
 }
 
