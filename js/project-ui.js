@@ -7,6 +7,7 @@ let pending=null,lastAuto='',restored=new Set();
 function syncInputs(){
   const bpm=$('#projectBpm');if(bpm)bpm.value=Number(state.bpm||120).toFixed(2);
   const snap=$('#phraseSnap');if(snap)snap.value=state.snapMode||'beat';
+  const loopBars=$('#loopBars');if(loopBars)loopBars.value=String(state.loopBars||8);
   for(const t of state.tracks){
     const tb=$(`#bpm-${t.id}`);if(tb)tb.value=Number(t.sourceBpm||120).toFixed(2);
     const p=$(`#pitch-${t.id}`);if(p)p.value=Number(t.pitch||0);
