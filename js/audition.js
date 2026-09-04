@@ -4,6 +4,7 @@ import{firstDownbeatIndex}from'./arrangement.js';
 
 function alignIndex(track){return Number.isInteger(track.alignMarker)&&track.markers[track.alignMarker]?track.alignMarker:firstDownbeatIndex(track)}
 function eligibleTracks(){const solo=state.tracks.some(t=>t.solo);return state.tracks.filter(t=>(t.renderedBuffer||t.buffer)&&!t.mute&&(!solo||t.solo))}
+function resetButtons(){const btn=$('#auditionAlign');if(btn)btn.textContent='AUDITION ALIGN';const play=$('#play');if(play)play.textContent='▶ PLAY'}
 
 export function auditionAlignment(seconds=12){
   if(state.rendering)return false;
@@ -21,9 +22,10 @@ export function auditionAlignment(seconds=12){
   }
   if(!state.sources.length)return false;
   state.playing=true;const btn=$('#auditionAlign');if(btn)btn.textContent='■ STOP AUDITION';$('#engineState').textContent=`AUDITION · ${windowStart.toFixed(2)}s → ${windowEnd.toFixed(2)}s · ALIGN ${Math.floor(ai/4)+1}.${ai%4+1}`;
-  if(last)last.onended=()=>{if(state.playing){stopAudio();if(btn)btn.textContent='AUDITION ALIGN';$('#play').textContent='▶ PLAY';$('#engineState').textContent='AUDITION COMPLETE'}};
+  if(last)last.onended=()=>{if(state.playing){stopAudio();resetButtons();$('#engineState').textContent='AUDITION COMPLETE'}};
   return true;
 }
 
 const stop=$('#stop'),btn=document.createElement('button');btn.className='btn';btn.id='auditionAlign';btn.textContent='AUDITION ALIGN';btn.title='Play a short window around the chosen alignment point';
-stop.after(btn);btn.onclick=()=>{if(state.playing){stopAudio();btn.textContent='AUDITION ALIGN';$('#play').textContent='▶ PLAY';return}auditionAlignment()};
+stop.after(btn);btn.onclick=()=>{if(state.playing){stopAudio();resetButtons();return}auditionAlignment()};
+const priorStop=stop.onclick;stop.onclick=()=>{priorStop?.();resetButtons()};
