@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { outputDuration, renderGranular } from '../js/render-core.js';
-import { alignTrackToMaster } from '../js/warp.js';
+import { alignTrackToMaster, correctGridMarker } from '../js/warp.js';
 
 function sine(sr, seconds, hz) {
   const n = Math.floor(sr * seconds), a = new Float32Array(n);
@@ -41,4 +41,16 @@ test('follower alignment uses the master edited target grid',()=>{
   alignTrackToMaster(master,follower);
   assert.deepEqual(follower.markers.map(m=>Number(m.targetTime.toFixed(2))),[0,.6,1.22,1.8,2.41]);
   assert.equal(follower.markers[0].locked,true);
+});
+
+test('grid correction moves one detector tick while preserving its warp offset',()=>{
+  const track={duration:4,markers:[
+    {sourceTime:0,targetTime:0},{sourceTime:1,targetTime:1.1},{sourceTime:2,targetTime:2.2},{sourceTime:3,targetTime:3.3}
+  ]};
+  const ss=track.markers.map(m=>m.sourceTime),ts=track.markers.map(m=>m.targetTime);
+  correctGridMarker(track,1,1.18,ss,ts);
+  assert.ok(Math.abs(track.markers[1].sourceTime-1.08)<1e-9);
+  assert.ok(Math.abs(track.markers[1].targetTime-1.18)<1e-9);
+  assert.ok(Math.abs((track.markers[1].targetTime-track.markers[1].sourceTime)-.1)<1e-9);
+  assert.equal(track.markers[2].targetTime,2.2);
 });
