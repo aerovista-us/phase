@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { outputDuration, renderGranular } from '../js/render-core.js';
+import { alignTrackToMaster } from '../js/warp.js';
 
 function sine(sr, seconds, hz) {
   const n = Math.floor(sr * seconds), a = new Float32Array(n);
@@ -32,4 +33,12 @@ test('pitch shifts independently of duration', () => {
   assert.ok(Math.abs(result.duration-1)<.001);
   const hz=estimateHz(result.channels[0],sr,Math.floor(sr*.2),Math.floor(sr*.8));
   assert.ok(hz>400&&hz<480,`expected ~440 Hz, got ${hz}`);
+});
+
+test('follower alignment uses the master edited target grid',()=>{
+  const master={sourceBpm:100,markers:[{targetTime:0,downbeat:true},{targetTime:.6},{targetTime:1.22},{targetTime:1.8},{targetTime:2.41}]};
+  const follower={markers:Array.from({length:5},(_,i)=>({targetTime:i*.5,downbeat:i===0,locked:i===0}))};
+  alignTrackToMaster(master,follower);
+  assert.deepEqual(follower.markers.map(m=>Number(m.targetTime.toFixed(2))),[0,.6,1.22,1.8,2.41]);
+  assert.equal(follower.markers[0].locked,true);
 });
