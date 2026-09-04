@@ -1,4 +1,4 @@
-const CACHE='echoverse-phase-shell-v4';
+const CACHE='echoverse-phase-shell-v5';
 const CORE=['/','/phase.html','/styles.css','/manifest.webmanifest','/icons/phase.svg','/js/state.js','/js/audio.js','/js/analysis.js','/js/warp.js','/js/render-core.js','/js/render-worker.js','/js/render.js','/js/export.js','/js/app.js'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
