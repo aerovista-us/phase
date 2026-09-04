@@ -1,20 +1,22 @@
-export async function renderMix(buffers, sampleRate = 44100) {
-  const playable = buffers.filter(Boolean);
+function normalizeItem(item){return item?.buffer?item:{buffer:item,offset:0}}
+export async function renderMix(items, sampleRate = 44100) {
+  const playable = items.map(normalizeItem).filter(x=>x.buffer);
   if (!playable.length) throw new Error('No audio to export');
-  const duration = Math.max(...playable.map(b => b.duration));
+  const duration = Math.max(...playable.map(x=>Math.max(0,x.offset||0)+Math.max(0,x.buffer.duration-Math.max(0,-(x.offset||0)))));
   const length = Math.max(1, Math.ceil(duration * sampleRate));
   const off = new OfflineAudioContext(2, length, sampleRate);
   const master = off.createGain();
   master.gain.value = 0.92;
   master.connect(off.destination);
   const perTrack = 1 / Math.max(1, playable.length);
-  for (const buffer of playable) {
-    const source = off.createBufferSource();
-    const gain = off.createGain();
+  for (const item of playable) {
+    const buffer=item.buffer,offset=item.offset||0,sourceOffset=Math.max(0,-offset),remaining=Math.max(0,buffer.duration-sourceOffset);
+    if(remaining<=0)continue;
+    const source = off.createBufferSource(), gain = off.createGain();
     source.buffer = buffer;
     gain.gain.value = perTrack;
     source.connect(gain).connect(master);
-    source.start(0);
+    source.start(Math.max(0,offset),sourceOffset,remaining);
   }
   return off.startRendering();
 }
