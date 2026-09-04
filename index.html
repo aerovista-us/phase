@@ -6,9 +6,9 @@
 <title>Phase — EchoVerse Audio</title>
 <meta name="theme-color" content="#111820">
 <meta name="description" content="EchoVerse Phase — local-first audio warp, sync and remix workstation.">
-<link rel="manifest" href="/manifest.webmanifest">
-<link rel="icon" href="/icons/phase.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/styles.css">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icons/phase.svg" type="image/svg+xml">
+<link rel="stylesheet" href="./styles.css">
 </head>
 <body>
 <div class="app">
@@ -54,6 +54,11 @@
   <footer class="footer"><span>PHASE 0.4</span><span>LOCAL-FIRST PWA</span><span id="engineState">ENGINE READY</span><span class="right"><span class="kbd">W</span> warp &nbsp; <span class="kbd">A</span> anchor &nbsp; <span class="kbd">G</span> grid edit &nbsp; <span class="kbd">Shift+Click</span> bar 1 &nbsp; <span class="kbd">Space</span> play</span></footer>
 </div>
 <input id="mapFile" type="file" accept="application/json,.json" hidden>
-<script type="module" src="/js/app.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(console.warn), { once: true });
+}
+</script>
+<script type="module" src="./js/app.js"></script>
 </body>
 </html>
