@@ -14,6 +14,7 @@ const style=document.createElement('style');style.textContent=`
 `;
 document.head.appendChild(style);
 
+function ensureAuditionButton(){if($('#auditionAlign'))return;const btn=document.createElement('button');btn.className='btn';btn.id='auditionAlign';btn.textContent='AUDITION ALIGN';btn.title='Play a short window around the chosen alignment point';$('#stop').after(btn)}
 function addMixControls(){for(const t of state.tracks){const head=$(`#name-${t.id}`)?.closest('.track-head');if(!head||$(`#gain-${t.id}`))continue;const row=document.createElement('div');row.className='mix-row';row.innerHTML=`<span class="tiny-label">LEVEL</span><input id="gain-${t.id}" type="range" min="-24" max="6" step="0.5" value="${t.gainDb}"><span class="mix-db" id="gainDb-${t.id}">${t.gainDb>=0?'+':''}${t.gainDb.toFixed(1)} dB</span>`;head.appendChild(row);const input=$(`#gain-${t.id}`);input.oninput=()=>{t.gainDb=+input.value;$(`#gainDb-${t.id}`).textContent=`${t.gainDb>=0?'+':''}${t.gainDb.toFixed(1)} dB`;$('#engineState').textContent=`${t.label} LEVEL · ${t.gainDb>=0?'+':''}${t.gainDb.toFixed(1)} dB`}}}
 
 function eligible(){const solo=state.tracks.some(t=>t.solo);return state.tracks.filter(t=>(t.renderedBuffer||t.buffer)&&!t.mute&&(!solo||t.solo))}
@@ -28,9 +29,9 @@ export async function makeAudioCurrent(){if(!state.dirty)return;const loaded=sta
 
 async function exportMix(){if(state.rendering)return;if(state.dirty)await makeAudioCurrent();const items=state.tracks.filter(t=>t.renderedBuffer||t.buffer).map(t=>({buffer:t.renderedBuffer||t.buffer,offset:t.renderedOffset||0,gain:dbToGain(t.gainDb)}));if(!items.length)return alert('Load audio first.');const btn=$('#exportWav');btn.disabled=true;$('#engineState').textContent='MIXING WAV…';try{const mix=await renderMix(items,44100);downloadWav(mix,'phase-mix.wav');$('#engineState').textContent='WAV EXPORTED · MIX LEVELS APPLIED'}catch(err){console.error(err);$('#engineState').textContent='EXPORT FAILED';alert('Export failed: '+(err.message||err))}finally{btn.disabled=false}}
 
-addMixControls();
+ensureAuditionButton();addMixControls();
 if($('#play'))$('#play').onclick=playMix;
 if($('#auditionAlign'))$('#auditionAlign').onclick=()=>{if(state.playing){stopAudio();resetTransport();return}auditionMix()};
 if($('#stop'))$('#stop').onclick=()=>{stopAudio();resetTransport()};
 if($('#exportWav'))$('#exportWav').onclick=exportMix;
-window.addEventListener('resize',addMixControls);
+window.addEventListener('resize',()=>{ensureAuditionButton();addMixControls()});
