@@ -7,6 +7,7 @@ let before=null,beforeFp='';
 function syncInputs(){
   const bpm=$('#projectBpm');if(bpm)bpm.value=Number(state.bpm||120).toFixed(2);
   const snap=$('#phraseSnap');if(snap)snap.value=state.snapMode||'beat';
+  const loopBars=$('#loopBars');if(loopBars)loopBars.value=String(state.loopBars||8);
   for(const t of state.tracks){
     const tb=$(`#bpm-${t.id}`);if(tb)tb.value=Number(t.sourceBpm||120).toFixed(2);
     const p=$(`#pitch-${t.id}`);if(p)p.value=Number(t.pitch||0);
@@ -45,7 +46,7 @@ function doRedo(){
 
 function trackedTarget(el){
   if(!el||!el.closest)return false;
-  if(el.closest('#undoPhase,#redoPhase,#saveMap,#loadMap,#restoreSession,#play,#stop,#auditionAlign,#render,#exportWav,#install,#analyze'))return false;
+  if(el.closest('#undoPhase,#redoPhase,#saveMap,#loadMap,#restoreSession,#play,#stop,#auditionAlign,#render,#exportWav,#install,#analyze,#loopToggle'))return false;
   if(el.closest('.marker,.lane'))return true;
   if(el.matches('input[id^="bpm-"],input[id^="pitch-"],input[id^="offset-"],input[id^="gain-"],#projectBpm,#phraseSnap'))return true;
   if(el.closest('[id^="alignSet-"],#alignB,#matchKey,#resetWarp'))return true;
