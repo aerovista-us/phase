@@ -1,6 +1,6 @@
 import{state}from'./state.js';
 export function ensureAudio(){if(!state.audioCtx)state.audioCtx=new(window.AudioContext||window.webkitAudioContext)();return state.audioCtx}
-export function calcPeaks(buf,n=2400){const ch=buf.getChannelData(0),step=Math.max(1,Math.floor(ch.length/n)),out=new Float32Array(n);for(let i=0;i<n;i++){let p=0,start=i*step,end=Math.min(ch.length,start+step);for(let j=start;j<end;j++)p=Math.max(p,Math.abs(ch[j]));out[i]=p}return out}
+export function calcPeaks(buf,n){const points=n||Math.min(32768,Math.max(4096,Math.ceil(buf.duration*64))),channels=Array.from({length:buf.numberOfChannels},(_,i)=>buf.getChannelData(i)),length=buf.length,step=Math.max(1,Math.floor(length/points)),out=new Float32Array(points);for(let i=0;i<points;i++){let p=0,start=i*step,end=Math.min(length,start+step);for(let j=start;j<end;j++)for(const ch of channels)p=Math.max(p,Math.abs(ch[j]||0));out[i]=p}return out}
 export async function decodeFile(file){const ctx=ensureAudio(),ab=await file.arrayBuffer();return ctx.decodeAudioData(ab.slice(0))}
 export function stopAudio(){state.sources.forEach(s=>{try{s.stop()}catch{}});state.sources=[];state.playing=false}
 export function playbackWindow(offset,duration){const start=Math.max(0,offset||0),sourceOffset=Math.max(0,-(offset||0)),remaining=Math.max(0,duration-sourceOffset);return{start,sourceOffset,remaining,end:start+remaining}}
