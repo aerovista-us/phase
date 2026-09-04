@@ -9,11 +9,12 @@ function analysisSummary(a){
 
 export function snapshotProject(state){
   return{
-    app:'EchoVerse Phase',version:6,savedAt:new Date().toISOString(),
+    app:'EchoVerse Phase',version:7,savedAt:new Date().toISOString(),
     bpm:num(state.bpm,120),viewDuration:num(state.viewDuration,60),pxPerSecond:num(state.pxPerSecond,8),snapMode:state.snapMode||'beat',
     playheadTime:num(state.playheadTime,0),loopBars:num(state.loopBars,8),loopEnabled:!!state.loopEnabled,
     tracks:(state.tracks||[]).map(t=>({
       label:t.label,name:t.name,fileName:t.file?.name||t.fileName||null,sourceBpm:num(t.sourceBpm,120),pitch:num(t.pitch,0),timelineOffset:num(t.timelineOffset,0),
+      trimIn:Math.max(0,num(t.trimIn,0)),trimOut:Number.isFinite(Number(t.trimOut))?Math.max(0,Number(t.trimOut)):null,
       gridMode:t.gridMode||'manual',alignMarker:Number.isInteger(t.alignMarker)?t.alignMarker:null,gainDb:num(t.gainDb,0),mute:!!t.mute,solo:!!t.solo,
       analysis:analysisSummary(t.analysis),markers:cloneMarkers(t.markers)
     }))
@@ -32,6 +33,8 @@ export function applyTrackSnapshot(track,src,{applyMarkers=true}={}){
   track.sourceBpm=clamp(num(src.sourceBpm,track.sourceBpm||120),40,240);
   track.pitch=clamp(num(src.pitch,track.pitch||0),-24,24);
   track.timelineOffset=num(src.timelineOffset,track.timelineOffset||0);
+  track.trimIn=Math.max(0,num(src.trimIn,track.trimIn||0));
+  track.trimOut=Number.isFinite(Number(src.trimOut))?Math.max(track.trimIn,Number(src.trimOut)):null;
   track.gridMode=src.gridMode||track.gridMode||'manual';
   track.alignMarker=Number.isInteger(src.alignMarker)?src.alignMarker:track.alignMarker;
   track.gainDb=clamp(num(src.gainDb,track.gainDb||0),-24,6);
