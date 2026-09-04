@@ -43,9 +43,9 @@
       <div class="card"><h3>Render state</h3><div class="status-pill"><span class="dot" id="renderDot"></span><span id="renderState">AUDIO CURRENT</span></div></div>
       <div class="card"><h3>Selected marker</h3><div class="meta"><span>Track</span><span id="selTrack">—</span><span>Beat</span><span id="selBeat">—</span><span>Source</span><span id="selSource">—</span><span>Target</span><span id="selTarget">—</span></div></div>
       <div class="card"><h3>Workflow</h3><div class="sub">Load → Analyze → choose ALIGN points → phrase-snap the arrangement → grid-correct or warp → audition → Render Changes → Export WAV.</div></div>
-      <div class="card"><h3>Project transport</h3><div class="sub">Click or drag the ruler to seek. Playback starts at the playhead. Use a 4 / 8 / 16 / 32-bar audition loop around the current phrase while you tune an alignment.</div></div>
+      <div class="card"><h3>Project transport</h3><div class="sub">Click or drag the ruler to seek. Playback starts at the playhead. Use a 4 / 8 / 16 / 32-bar audition loop around the current phrase and export that loop as a quick WAV when useful.</div></div>
       <div class="card"><h3>Session safety</h3><div class="sub">Phase remembers the latest project map locally and supports metadata Undo / Redo. Audio files remain local; reload the same source files to reconnect a restored session.</div></div>
-      <div class="card"><h3>Audition + mix</h3><div class="sub">MUTE and SOLO are audition helpers. Track LEVEL is applied to full playback, focused alignment audition, and the exported WAV mix.</div></div>
+      <div class="card"><h3>Audition + mix</h3><div class="sub">MUTE and SOLO are audition helpers. Track LEVEL is applied to full playback, focused alignment audition, and WAV output.</div></div>
       <div class="card"><h3>Render model</h3><div class="sub">Dragging stays visual-only and instant. Playback keeps using the last completed audio until Render Changes runs the pitch-preserving worker. Source audio is never overwritten.</div></div>
     </aside>
     <section class="timeline" id="timeline">
@@ -70,5 +70,6 @@ if ('serviceWorker' in navigator) {
 <script type="module" src="./js/history-ui.js"></script>
 <script type="module" src="./js/visual-guides.js"></script>
 <script type="module" src="./js/transport-ui.js"></script>
+<script type="module" src="./js/export-loop-ui.js"></script>
 </body>
 </html>
