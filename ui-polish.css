@@ -6,7 +6,13 @@
 }
 
 html,body{overflow:hidden}
+*{scrollbar-width:thin;scrollbar-color:#3c4b56 #0b0f14}
+*::-webkit-scrollbar{width:9px;height:9px}
+*::-webkit-scrollbar-track{background:#0b0f14}
+*::-webkit-scrollbar-thumb{background:#3c4b56;border:2px solid #0b0f14;border-radius:9px}
+*::-webkit-scrollbar-thumb:hover{background:#536572}
 button,input,select{min-width:0}
+button{transition:border-color .12s ease,background .12s ease,color .12s ease}
 button:focus-visible,input:focus-visible,select:focus-visible{
   outline:2px solid rgba(102,181,168,.7);
   outline-offset:1px;
@@ -18,12 +24,15 @@ button:focus-visible,input:focus-visible,select:focus-visible{
   gap:7px 9px;
   padding:8px 10px;
   min-width:0;
+  box-shadow:0 1px 0 rgba(255,255,255,.015);
 }
 .topbar .brand{margin-right:4px;min-width:max-content}
 .topbar .transport{flex:0 0 auto}
 .topbar .field{flex:0 0 auto}
 .topbar .spacer{min-width:12px}
 .topbar .btn{height:var(--control-h);padding-inline:9px;white-space:nowrap}
+.topbar .btn:not(.primary):not(.warn){background:#131c24}
+.topbar .btn.warn{background:#221f18}
 
 /* Tool strip: show the tools instead of making users discover an invisible horizontal scroll. */
 .modebar{
@@ -33,27 +42,37 @@ button:focus-visible,input:focus-visible,select:focus-visible{
   padding:6px 10px;
   overflow:visible;
 }
+.modebar .label{
+  opacity:.82;
+  flex:0 0 auto;
+}
 .modebar .section{margin-left:8px}
 .modebar .mode,.modebar .snap-select{
   height:26px;
   max-width:100%;
 }
+.modebar .mode{border-color:rgba(38,53,66,.55)}
+.modebar .mode:hover{border-color:#405463}
 
 /* Track control surface. 150px is intentionally retained so ruler/audio geometry stays exact. */
 .track{
   height:var(--row);
   overflow:hidden;
 }
+.track:nth-child(even){background:linear-gradient(to bottom,rgba(255,255,255,.016),rgba(255,255,255,.004))}
 .track-head{
   padding:8px;
   gap:var(--ui-gap);
   overflow:hidden;
   align-content:start;
+  background:linear-gradient(90deg,#111a23 88%,rgba(17,26,35,.92));
+  box-shadow:2px 0 10px rgba(0,0,0,.12);
 }
 .track-name{
   min-height:17px;
   font-size:12px;
   line-height:17px;
+  letter-spacing:.1px;
 }
 .track-sub{
   min-height:25px;
@@ -65,6 +84,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{
   line-clamp:2;
   font-size:8px;
   line-height:12px;
+  color:#8997a1;
 }
 
 /* The original LOAD/BPM/PITCH row was wider than the panel. Stack LOAD, then split numeric fields. */
@@ -90,12 +110,22 @@ button:focus-visible,input:focus-visible,select:focus-visible{
   grid-template-columns:auto minmax(0,1fr);
   align-items:center;
 }
-.track-head .minirow:has(.offset) .offset{
-  width:100%;
+.track-head .minirow:has(.offset) .offset{width:100%}
+.track-head .mini,.track-head input{max-width:100%}
+.track-head input{
+  border-color:#2d3d49;
+  background:#0b1218;
+  font-size:11px;
 }
-.track-head .mini,.track-head input{
-  max-width:100%;
+.track-head .mini{
+  border-color:#2d3d49;
+  background:#15202a;
+  font-size:10px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
+.track-head .tiny-label{font-size:7px;letter-spacing:.7px;color:#75848e}
 
 /* Arrangement controls become a compact 2-column block. */
 .track-tools{
@@ -108,10 +138,9 @@ button:focus-visible,input:focus-visible,select:focus-visible{
 .track-tools [id^="alignSet-"]{
   grid-column:1 / -1;
   width:100%;
+  border-color:#405362;
 }
-.track-tools [id^="mute-"],.track-tools [id^="solo-"]{
-  width:100%;
-}
+.track-tools [id^="mute-"],.track-tools [id^="solo-"]{width:100%}
 /* The ALIGN button already carries the selected position; the second A 1.1 label is duplicate UI. */
 .track-tools .align-readout{display:none}
 
@@ -125,6 +154,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{
 .mix-row input[type="range"]{
   min-width:0!important;
   width:100%!important;
+  accent-color:#66b5a8;
 }
 .mix-row .mix-db{
   grid-column:2;
@@ -132,12 +162,22 @@ button:focus-visible,input:focus-visible,select:focus-visible{
   min-width:0!important;
   font-size:8px!important;
   line-height:9px;
+  color:#9aa8b1!important;
 }
 
 /* Keep decorative layers inside their lane and behind interactive markers. */
 .lane{isolation:isolate}
 .wave{inset:10px 0 14px;height:calc(100% - 24px)}
 .empty{padding:12px;text-align:center;line-height:1.5}
+.marker .cap{box-shadow:0 0 0 1px rgba(0,0,0,.18)}
+.marker.selected .cap{box-shadow:0 0 0 2px rgba(198,166,107,.16)}
+
+.footer{min-width:0}
+.footer #engineState{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
 
 /* Sidebar is useful when there is room; timeline wins when there isn't. */
 @media(max-width:1080px){
@@ -164,6 +204,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{
   .topbar .btn{padding-inline:7px;font-size:11px}
   .topbar .field{font-size:9px}
   .topbar .field input{width:62px;height:27px}
+  .modebar{gap:3px 4px}
   .modebar .label{font-size:8px}
   .modebar .mode,.modebar .snap-select{font-size:9px;padding-inline:7px}
   .modebar .section{margin-left:3px}
