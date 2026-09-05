@@ -8,12 +8,12 @@
 <meta name="description" content="EchoVerse Phase — local-first audio warp, sync and remix workstation.">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icons/phase.svg" type="image/svg+xml">
-<link rel="stylesheet" href="./styles.css">
+<link rel="stylesheet" href="./styles.css?v=0711">
 </head>
 <body>
 <div class="app">
   <header class="topbar">
-    <div class="brand"><span class="ev">ECHOVERSE AUDIO</span><span class="name">PHASE</span><span class="tag">ALPHA 0.7</span></div>
+    <div class="brand"><span class="ev">ECHOVERSE AUDIO</span><span class="name">PHASE</span><span class="tag">ALPHA 0.7.1</span></div>
     <div class="transport"><button class="btn primary" id="play">▶ PLAY</button><button class="btn" id="stop">■ STOP</button></div>
     <label class="field">PROJECT BPM <input id="projectBpm" type="number" min="40" max="240" step="0.01" value="120"></label>
     <div class="spacer"></div>
@@ -54,21 +54,21 @@
     </section>
   </main>
 
-  <footer class="footer"><span>PHASE 0.7</span><span>LOCAL-FIRST PWA</span><span id="engineState">ENGINE READY</span><span class="right"><span class="kbd">W</span> warp &nbsp; <span class="kbd">A</span> anchor &nbsp; <span class="kbd">G</span> grid &nbsp; <span class="kbd">M</span> move &nbsp; <span class="kbd">L</span> loop &nbsp; <span class="kbd">←/→</span> seek beat &nbsp; <span class="kbd">Ctrl+Z</span> undo</span></footer>
+  <footer class="footer"><span>PHASE 0.7.1</span><span>LOCAL-FIRST PWA</span><span id="engineState">ENGINE READY</span><span class="right"><span class="kbd">W</span> warp &nbsp; <span class="kbd">A</span> anchor &nbsp; <span class="kbd">G</span> grid &nbsp; <span class="kbd">M</span> move &nbsp; <span class="kbd">L</span> loop &nbsp; <span class="kbd">←/→</span> seek beat &nbsp; <span class="kbd">Ctrl+Z</span> undo</span></footer>
 </div>
 <input id="mapFile" type="file" accept="application/json,.json" hidden>
 <script>
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(console.warn), { once: true });
+  navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(console.warn);
 }
 </script>
-<script type="module" src="./js/app.js"></script>
-<script type="module" src="./js/arrange-ui.js"></script>
-<script type="module" src="./js/mix-ui.js"></script>
-<script type="module" src="./js/project-ui.js"></script>
-<script type="module" src="./js/history-ui.js"></script>
-<script type="module" src="./js/visual-guides.js"></script>
-<script type="module" src="./js/transport-ui.js"></script>
-<script type="module" src="./js/export-loop-ui.js"></script>
+<script type="module" src="./js/app.js?v=0711"></script>
+<script type="module" src="./js/arrange-ui.js?v=0711"></script>
+<script type="module" src="./js/mix-ui.js?v=0711"></script>
+<script type="module" src="./js/project-ui.js?v=0711"></script>
+<script type="module" src="./js/history-ui.js?v=0711"></script>
+<script type="module" src="./js/visual-guides.js?v=0711"></script>
+<script type="module" src="./js/transport-ui.js?v=0711"></script>
+<script type="module" src="./js/export-loop-ui.js?v=0711"></script>
 </body>
 </html>
