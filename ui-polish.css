@@ -1,0 +1,179 @@
+/* Phase 0.7.2 — resilient workstation layout polish */
+:root{
+  --row:236px;
+  --control-h:28px;
+  --ui-gap:5px;
+}
+
+html,body{overflow:hidden}
+button,input,select{min-width:0}
+button:focus-visible,input:focus-visible,select:focus-visible{
+  outline:2px solid rgba(102,181,168,.7);
+  outline-offset:1px;
+}
+
+/* Top application bar: never sacrifice actions just because the viewport narrows. */
+.topbar{
+  flex-wrap:wrap;
+  gap:7px 9px;
+  padding:8px 10px;
+  min-width:0;
+}
+.topbar .brand{margin-right:4px;min-width:max-content}
+.topbar .transport{flex:0 0 auto}
+.topbar .field{flex:0 0 auto}
+.topbar .spacer{min-width:12px}
+.topbar .btn{height:var(--control-h);padding-inline:9px;white-space:nowrap}
+
+/* Tool strip: show the tools instead of making users discover an invisible horizontal scroll. */
+.modebar{
+  flex-wrap:wrap;
+  align-content:center;
+  gap:4px 5px;
+  padding:6px 10px;
+  overflow:visible;
+}
+.modebar .section{margin-left:8px}
+.modebar .mode,.modebar .snap-select{
+  height:26px;
+  max-width:100%;
+}
+
+/* Track control surface. 150px is intentionally retained so ruler/audio geometry stays exact. */
+.track{
+  height:var(--row);
+  overflow:hidden;
+}
+.track-head{
+  padding:8px;
+  gap:var(--ui-gap);
+  overflow:hidden;
+  align-content:start;
+}
+.track-name{
+  min-height:17px;
+  font-size:12px;
+  line-height:17px;
+}
+.track-sub{
+  min-height:25px;
+  max-height:25px;
+  overflow:hidden;
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  line-clamp:2;
+  font-size:8px;
+  line-height:12px;
+}
+
+/* The original LOAD/BPM/PITCH row was wider than the panel. Stack LOAD, then split numeric fields. */
+.track-head .minirow{
+  width:100%;
+  min-width:0;
+  gap:4px;
+}
+.track-head .minirow:has([id^="load-"]){
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+}
+.track-head .minirow:has([id^="load-"]) > .mini{
+  grid-column:1 / -1;
+  width:100%;
+}
+.track-head .minirow:has([id^="load-"]) > input{
+  width:100%;
+  height:25px;
+}
+.track-head .minirow:has(.offset){
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  align-items:center;
+}
+.track-head .minirow:has(.offset) .offset{
+  width:100%;
+}
+.track-head .mini,.track-head input{
+  max-width:100%;
+}
+
+/* Arrangement controls become a compact 2-column block. */
+.track-tools{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  gap:4px!important;
+  width:100%;
+  align-items:center;
+}
+.track-tools [id^="alignSet-"]{
+  grid-column:1 / -1;
+  width:100%;
+}
+.track-tools [id^="mute-"],.track-tools [id^="solo-"]{
+  width:100%;
+}
+/* The ALIGN button already carries the selected position; the second A 1.1 label is duplicate UI. */
+.track-tools .align-readout{display:none}
+
+/* Mix control must fit the same narrow rail. */
+.mix-row{
+  width:100%;
+  grid-template-columns:auto minmax(0,1fr)!important;
+  gap:3px 5px!important;
+  margin-top:0!important;
+}
+.mix-row input[type="range"]{
+  min-width:0!important;
+  width:100%!important;
+}
+.mix-row .mix-db{
+  grid-column:2;
+  justify-self:end;
+  min-width:0!important;
+  font-size:8px!important;
+  line-height:9px;
+}
+
+/* Keep decorative layers inside their lane and behind interactive markers. */
+.lane{isolation:isolate}
+.wave{inset:10px 0 14px;height:calc(100% - 24px)}
+.empty{padding:12px;text-align:center;line-height:1.5}
+
+/* Sidebar is useful when there is room; timeline wins when there isn't. */
+@media(max-width:1080px){
+  .workspace{grid-template-columns:1fr}
+  .sidebar{display:none}
+}
+
+@media(max-width:900px){
+  :root{--row:246px}
+  .topbar .brand{width:100%;margin-right:0}
+  .topbar .spacer{display:none}
+  .topbar{align-items:center}
+  .modebar{padding-inline:8px}
+  .track-head{padding:7px 6px;gap:4px}
+  .track-sub{font-size:7.5px}
+  .footer .right{display:none}
+}
+
+@media(max-width:620px){
+  :root{--row:252px}
+  .topbar{gap:5px;padding:7px}
+  .brand .ev{display:none}
+  .brand .name{font-size:17px;letter-spacing:2.4px}
+  .topbar .btn{padding-inline:7px;font-size:11px}
+  .topbar .field{font-size:9px}
+  .topbar .field input{width:62px;height:27px}
+  .modebar .label{font-size:8px}
+  .modebar .mode,.modebar .snap-select{font-size:9px;padding-inline:7px}
+  .modebar .section{margin-left:3px}
+  .footer{gap:8px;font-size:9px;white-space:nowrap;overflow:hidden}
+}
+
+@media(max-height:720px){
+  /* On short screens, keep everything contained and let the timeline itself scroll vertically. */
+  :root{--row:224px}
+  .track-head{gap:3px;padding-block:6px}
+  .track-sub{min-height:22px;max-height:22px}
+  .track-head .mini,.track-head .minirow input{height:23px}
+}
