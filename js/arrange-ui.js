@@ -18,13 +18,14 @@ for(const t of state.tracks){t.alignMarker=Number.isInteger(t.alignMarker)?t.ali
 
 function markerLabel(track,idx){const m=track.markers[idx];if(!m)return'—';return`${Math.floor(idx/4)+1}.${idx%4+1}`}
 function chosenAlignIndex(track){return Number.isInteger(track.alignMarker)&&track.markers[track.alignMarker]?track.alignMarker:firstDownbeatIndex(track)}
+function setText(el,text){if(el&&el.textContent!==text)el.textContent=text}
 
 function refreshAlignDecor(){
   for(const t of state.tracks){
     const idx=chosenAlignIndex(t);t.alignMarker=idx;
     $$(`.marker[data-track="${t.id}"]`).forEach(el=>el.classList.toggle('alignpoint',+el.dataset.beat===idx));
-    const b=$(`#alignSet-${t.id}`);if(b)b.textContent=`ALIGN @ ${markerLabel(t,idx)}`;
-    const r=$(`#alignRead-${t.id}`);if(r)r.textContent=`A ${markerLabel(t,idx)}`;
+    setText($(`#alignSet-${t.id}`),`ALIGN @ ${markerLabel(t,idx)}`);
+    setText($(`#alignRead-${t.id}`),`A ${markerLabel(t,idx)}`);
     const m=$(`#mute-${t.id}`);if(m)m.classList.toggle('active',t.mute);
     const s=$(`#solo-${t.id}`);if(s)s.classList.toggle('active',t.solo);
   }
@@ -89,7 +90,11 @@ function overrideMove(){
 addSnapControl();addTrackTools();overrideMove();
 if($('#alignB')){$('#alignB').onclick=alignSelected;$('#alignB').title='Align the chosen B marker to the chosen A marker and follow A’s edited grid'}
 
-const observer=new MutationObserver(()=>refreshAlignDecor());
-const tracks=$('#tracks');if(tracks)observer.observe(tracks,{childList:true,subtree:true});
+let refreshQueued=false;
+const queueRefresh=()=>{if(refreshQueued)return;refreshQueued=true;requestAnimationFrame(()=>{refreshQueued=false;refreshAlignDecor()})};
+const observer=new MutationObserver(queueRefresh);
+for(const t of state.tracks){const host=$(`#markers-${t.id}`);if(host)observer.observe(host,{childList:true})}
 window.addEventListener('resize',()=>setTimeout(()=>{addTrackTools();overrideMove();refreshAlignDecor()},0));
+window.addEventListener('phase:project-applied',queueRefresh);
+window.addEventListener('phase:history-applied',queueRefresh);
 refreshAlignDecor();
