@@ -171,9 +171,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{
 }
 
 @media(max-height:720px){
-  /* On short screens, keep everything contained and let the timeline itself scroll vertically. */
-  :root{--row:224px}
-  .track-head{gap:3px;padding-block:6px}
-  .track-sub{min-height:22px;max-height:22px}
-  .track-head .mini,.track-head .minirow input{height:23px}
+  /* Short viewports scroll the timeline vertically; track controls remain fully contained. */
+  :root{--row:242px}
+  .track-head{gap:4px;padding-block:7px}
+  .track-sub{min-height:23px;max-height:23px}
 }
