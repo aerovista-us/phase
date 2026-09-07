@@ -4,7 +4,7 @@
 
 Live alpha: **https://phase.aerovista.us/**
 
-## Current foundation — Phase 0.8.1
+## Current foundation — Phase 0.10.3
 
 Phase is now a functional local-first mashup workstation rather than only a CUTS-derived prototype shell.
 
@@ -14,12 +14,17 @@ Implemented today:
 - local audio import and Web Audio playback
 - shared multitrack timeline with zoom and seekable playhead
 - BPM, beat, downbeat and key analysis with confidence indicators
+- 3/4, 4/4 and 6/8 meter analysis with project-wide meter-aware bars, phrases, regions and loops
 - manual grid correction and editable Bar 1/downbeat phase
+- ½ BPM / ×2 BPM tempo-octave correction without discarding the detected grid
 - lockable warp anchors and piecewise timing edits
 - separate pitch control and pitch-preserving background render worker
 - explicit **Render Changes** workflow; source audio remains immutable
 - chosen A/B alignment points and grid-following alignment
 - beat/bar/8/16/32-bar phrase snapping and whole-track MOVE
+- advisory phrase-boundary suggestions with previous/next phrase navigation
+- Match Assist compatibility scoring across key, tempo and meter
+- advisory phrase-pair suggestions that set ALIGN points without moving audio automatically
 - track MUTE / SOLO / LEVEL controls
 - alignment audition, project loops and loop WAV export
 - full mix WAV export
@@ -29,6 +34,8 @@ Implemented today:
 - region-driven per-track fade in / fade out
 - A → B crossfade across a selected REGION
 - fades honored by playback, audition and WAV export without requiring DSP render
+- hybrid render path that preserves original PCM outside dirty warp regions
+- sparse dirty-region granular DSP, render quality modes, cancellation, work stats and render reuse
 - responsive workstation containment and PWA update handling
 
 ## Architecture principle
@@ -49,9 +56,7 @@ Phase itself stays browser-local and PWA-friendly. GitHub Pages hosts the static
 
 ## Build roadmap
 
-### 0.8 — Arrangement editing
-
-Current milestone, substantially complete.
+### 0.8 — Arrangement editing — complete alpha milestone
 
 - IN / OUT trim
 - arrangement REGION selection
@@ -61,33 +66,35 @@ Current milestone, substantially complete.
 - region-driven fades
 - A → B crossfade
 - fade-aware playback and export
-- next: interaction refinement and edge-case cleanup around trims/fades/regions
 
-### 0.9 — Render quality
+### 0.9 — Render quality — complete alpha milestone
 
-- better transient preservation
+- original PCM retained outside changed warp regions
+- dirty-region granular DSP rather than whole-track processing
 - render-boundary crossfades
-- dirty-region rendering rather than whole-track recalculation
-- cache unchanged rendered sections
-- quality/performance modes
-- long-track memory handling
-- render progress/cancel improvements
-- timing and pitch accuracy regression tests
+- FAST / BALANCED / HIGH quality modes
+- render cancellation and work statistics
+- rendered-audio reuse for placement-only edits
+- timing/pitch/render regression tests
 
-### 0.10 — Mashup intelligence
+### 0.10 — Mashup intelligence — complete alpha milestone
 
-- stronger downbeat and phrase detection
+- stronger downbeat confidence and manual correction
 - half/double-tempo resolution
-- meter handling
-- phrase/drop/chorus suggestions
-- improved harmonic compatibility guidance
-- all automatic decisions remain editable
+- 3/4, 4/4 and 6/8 meter handling
+- meter-aware bar/phrase/region/loop behavior
+- phrase-boundary suggestions
+- harmonic/tempo/meter compatibility guidance
+- advisory A/B phrase-pair suggestions
+- all automatic decisions remain editable and non-destructive
 
-### 0.11 — Stems
+### 0.11 — Stems — active next milestone
 
-- vocal/instrumental or multi-stem separation
+- stem-aware project model
+- manual stem import as an immediately useful local workflow
+- vocal/instrumental or multi-stem separation provider interface
 - optional local/NXCore heavy worker path
-- stem-aware timeline and export
+- stem-aware playback, rendering and export
 
 ### 0.12 → 1.0 — Productization
 
