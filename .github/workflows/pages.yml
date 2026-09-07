@@ -33,6 +33,9 @@ jobs:
           cp index.html recovery.html styles.css ui-polish.css manifest.webmanifest sw.js _site/
           cp -R icons js _site/
           if [ -f CNAME ]; then cp CNAME _site/CNAME; fi
+          VERSION=$(grep -oE 'ALPHA [0-9]+\.[0-9]+\.[0-9]+' index.html | head -1 | awk '{print $2}')
+          BUILT_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          printf '{"version":"%s","commit":"%s","builtAt":"%s"}\n' "$VERSION" "$GITHUB_SHA" "$BUILT_AT" > _site/build.json
           touch _site/.nojekyll
 
       - name: Upload Pages artifact
