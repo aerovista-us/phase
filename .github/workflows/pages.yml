@@ -21,6 +21,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate Phase syntax
+        run: npm run check
+
+      - name: Run Phase tests
+        run: npm test
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
         with:
