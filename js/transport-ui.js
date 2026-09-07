@@ -77,9 +77,9 @@ function playFromPlayhead(){
 }
 
 function recalcLoop(){
-  const r=phraseLoopAt(state.playheadTime,state.bpm,state.loopBars);state.loopStart=r.start;state.loopEnd=r.end;if(state.loopEnd>state.viewDuration){state.viewDuration=state.loopEnd*1.02;window.dispatchEvent(new Event('resize'))}paintVisuals();
+  const r=phraseLoopAt(state.playheadTime,state.bpm,state.loopBars,state.beatsPerBar||4);state.loopStart=r.start;state.loopEnd=r.end;if(state.loopEnd>state.viewDuration){state.viewDuration=state.loopEnd*1.02;window.dispatchEvent(new Event('resize'))}paintVisuals();
 }
-function toggleLoop(){state.loopEnabled=!state.loopEnabled;if(state.loopEnabled)recalcLoop();paintVisuals();$('#engineState').textContent=`LOOP ${state.loopEnabled?'ON':'OFF'}${state.loopEnabled?` · ${state.loopBars} BARS`:''}`}
+function toggleLoop(){state.loopEnabled=!state.loopEnabled;if(state.loopEnabled)recalcLoop();paintVisuals();$('#engineState').textContent=`LOOP ${state.loopEnabled?'ON':'OFF'}${state.loopEnabled?` · ${state.loopBars} BARS · ${state.meter||'4/4'}`:''}`}
 
 function installControls(){
   if(!$('#rewindPhase')){const b=document.createElement('button');b.className='btn';b.id='rewindPhase';b.textContent='|◀';b.title='Return playhead to project start';$('.transport').prepend(b);b.onclick=()=>{const was=state.transportActive;stopTransport({keep:false});setPlayhead(0);if(was)schedule(0,state.loopEnabled?state.loopEnd:Infinity)}}
@@ -88,7 +88,7 @@ function installControls(){
     const label=document.createElement('span');label.className='label section';label.textContent='AUDITION';
     const toggle=document.createElement('button');toggle.className='mode loop-toggle';toggle.id='loopToggle';toggle.textContent='LOOP OFF';
     const size=document.createElement('select');size.className='snap-select';size.id='loopBars';size.innerHTML='<option value="4">4 BARS</option><option value="8">8 BARS</option><option value="16">16 BARS</option><option value="32">32 BARS</option>';size.value=String(state.loopBars);
-    $('.modebar').append(label,toggle,size);toggle.onclick=toggleLoop;size.onchange=()=>{state.loopBars=+size.value||8;if(state.loopEnabled)recalcLoop();$('#engineState').textContent=`LOOP SIZE · ${state.loopBars} BARS`};
+    $('.modebar').append(label,toggle,size);toggle.onclick=toggleLoop;size.onchange=()=>{state.loopBars=+size.value||8;if(state.loopEnabled)recalcLoop();$('#engineState').textContent=`LOOP SIZE · ${state.loopBars} BARS · ${state.meter||'4/4'}`};
   }
   $('#play').onclick=playFromPlayhead;$('#stop').onclick=()=>stopTransport();paintVisuals();
 }
@@ -112,4 +112,4 @@ function tick(){
   else paintVisuals();requestAnimationFrame(tick);
 }
 
-installControls();bindRuler();window.addEventListener('resize',()=>{installControls();bindRuler();paintVisuals()});window.addEventListener('phase:project-applied',()=>setTimeout(restoreTransport,0));window.addEventListener('phase:history-applied',()=>setTimeout(restoreTransport,0));tick();
+installControls();bindRuler();window.addEventListener('resize',()=>{installControls();bindRuler();paintVisuals()});window.addEventListener('phase:project-applied',()=>setTimeout(restoreTransport,0));window.addEventListener('phase:history-applied',()=>setTimeout(restoreTransport,0));window.addEventListener('phase:meter-change',()=>{if(state.loopEnabled)recalcLoop();else paintVisuals()});tick();
