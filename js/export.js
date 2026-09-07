@@ -17,8 +17,9 @@ export async function renderMixRegion(items,start,end,sampleRate=44100){
   const playable=items.map(normalizeItem).filter(x=>x.buffer),r0=Math.max(0,Number(start)||0),r1=Math.max(r0,Number(end)||0),duration=r1-r0;
   if(!playable.length)throw new Error('No audio to export');if(duration<=0)throw new Error('Region is empty');
   const length=Math.max(1,Math.ceil(duration*sampleRate)),off=new OfflineAudioContext(2,length,sampleRate),master=off.createGain();master.gain.value=.92;master.connect(off.destination);
-  const active=playable.map(item=>({item,w:mixRegionWindow(item.offset||0,item.buffer.duration,r0,r1,item.sourceIn||0,item.sourceOut)})).filter(x=>x.w),perTrack=1/mixNormalizationCount(playable);
-  for(const {item,w} of active){const source=off.createBufferSource(),gain=off.createGain(),base=perTrack*Math.max(0,Number.isFinite(item.gain)?item.gain:1),p0=r0+w.delay,p1=p0+w.duration;source.buffer=item.buffer;applyGainEnvelope(gain.gain,base,item,p0,p1,w.delay);source.connect(gain).connect(master);source.start(w.delay,w.sourceOffset,w.duration)}
+  const active=playable.map(item=>({item,w:mixRegionWindow(item.offset||0,item.buffer.duration,r0,r1,item.sourceIn||0,item.sourceOut)})).filter(x=>x.w),perTrack=1/mixNormalizationCount(playable.map((_,i)=>i));
+  const activePerTrack=1/mixNormalizationCount(active.map(x=>x.item));
+  for(const {item,w} of active){const source=off.createBufferSource(),gain=off.createGain(),base=activePerTrack*Math.max(0,Number.isFinite(item.gain)?item.gain:1),p0=r0+w.delay,p1=p0+w.duration;source.buffer=item.buffer;applyGainEnvelope(gain.gain,base,item,p0,p1,w.delay);source.connect(gain).connect(master);source.start(w.delay,w.sourceOffset,w.duration)}
   return off.startRendering();
 }
 
