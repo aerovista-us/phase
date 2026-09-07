@@ -1,22 +1,23 @@
 const clamp=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
 const num=(v,fallback=0)=>Number.isFinite(Number(v))?Number(v):fallback;
 const finiteOrNull=v=>v!=null&&Number.isFinite(Number(v))?Number(v):null;
+const meterBeats=v=>[3,4,6].includes(Number(v))?Number(v):4;
 const cloneMarkers=markers=>Array.isArray(markers)?markers.map((m,i)=>({beat:Number.isInteger(m.beat)?m.beat:i,sourceTime:num(m.sourceTime),targetTime:num(m.targetTime),downbeat:!!m.downbeat,locked:!!m.locked,confidence:num(m.confidence,1)})):[];
 
 function analysisSummary(a){
   if(!a)return null;
-  return{bpm:num(a.bpm,0),tempoConfidence:num(a.tempoConfidence,0),downbeatPhase:Number.isInteger(a.downbeatPhase)?a.downbeatPhase:0,downbeatConfidence:num(a.downbeatConfidence,0),key:a.key||null,keyRoot:Number.isInteger(a.keyRoot)?a.keyRoot:null,keyMode:a.keyMode||null,keyConfidence:num(a.keyConfidence,0)};
+  return{bpm:num(a.bpm,0),rawBpm:num(a.rawBpm,a.bpm||0),tempoOctaveAdjusted:!!a.tempoOctaveAdjusted,tempoAlternates:Array.isArray(a.tempoAlternates)?a.tempoAlternates.map(x=>({bpm:num(x.bpm),score:num(x.score)})):[],tempoConfidence:num(a.tempoConfidence,0),meter:a.meter||'4/4',beatsPerBar:meterBeats(a.beatsPerBar),meterConfidence:num(a.meterConfidence,0),downbeatPhase:Number.isInteger(a.downbeatPhase)?a.downbeatPhase:0,downbeatConfidence:num(a.downbeatConfidence,0),key:a.key||null,keyRoot:Number.isInteger(a.keyRoot)?a.keyRoot:null,keyMode:a.keyMode||null,keyConfidence:num(a.keyConfidence,0)};
 }
 
 export function snapshotProject(state){
   const rs=finiteOrNull(state.regionStart),re=finiteOrNull(state.regionEnd);
   return{
-    app:'EchoVerse Phase',version:9,savedAt:new Date().toISOString(),
-    bpm:num(state.bpm,120),viewDuration:num(state.viewDuration,60),pxPerSecond:num(state.pxPerSecond,8),snapMode:state.snapMode||'beat',
+    app:'EchoVerse Phase',version:10,savedAt:new Date().toISOString(),
+    bpm:num(state.bpm,120),meterPreference:state.meterPreference||'auto',meter:state.meter||'4/4',beatsPerBar:meterBeats(state.beatsPerBar),viewDuration:num(state.viewDuration,60),pxPerSecond:num(state.pxPerSecond,8),snapMode:state.snapMode||'beat',
     playheadTime:num(state.playheadTime,0),loopBars:num(state.loopBars,8),loopEnabled:!!state.loopEnabled,
     regionStart:rs==null?null:Math.max(0,rs),regionEnd:re==null?null:Math.max(0,re),
     tracks:(state.tracks||[]).map(t=>({
-      label:t.label,name:t.name,fileName:t.file?.name||t.fileName||null,sourceBpm:num(t.sourceBpm,120),pitch:num(t.pitch,0),timelineOffset:num(t.timelineOffset,0),
+      label:t.label,name:t.name,fileName:t.file?.name||t.fileName||null,sourceBpm:num(t.sourceBpm,120),pitch:num(t.pitch,0),timelineOffset:num(t.timelineOffset,0),meterPreference:t.meterPreference||state.meterPreference||'auto',meter:t.meter||t.analysis?.meter||'4/4',beatsPerBar:meterBeats(t.beatsPerBar??t.analysis?.beatsPerBar),
       trimIn:Math.max(0,num(t.trimIn,0)),trimOut:finiteOrNull(t.trimOut)==null?null:Math.max(0,finiteOrNull(t.trimOut)),
       fadeInStart:finiteOrNull(t.fadeInStart),fadeInEnd:finiteOrNull(t.fadeInEnd),fadeOutStart:finiteOrNull(t.fadeOutStart),fadeOutEnd:finiteOrNull(t.fadeOutEnd),
       gridMode:t.gridMode||'manual',alignMarker:Number.isInteger(t.alignMarker)?t.alignMarker:null,gainDb:num(t.gainDb,0),mute:!!t.mute,solo:!!t.solo,
@@ -37,6 +38,7 @@ export function applyTrackSnapshot(track,src,{applyMarkers=true}={}){
   track.sourceBpm=clamp(num(src.sourceBpm,track.sourceBpm||120),40,240);
   track.pitch=clamp(num(src.pitch,track.pitch||0),-24,24);
   track.timelineOffset=num(src.timelineOffset,track.timelineOffset||0);
+  track.meterPreference=src.meterPreference||track.meterPreference||'auto';track.meter=src.meter||track.meter||'4/4';track.beatsPerBar=meterBeats(src.beatsPerBar??track.beatsPerBar);
   track.trimIn=Math.max(0,num(src.trimIn,track.trimIn||0));
   const out=finiteOrNull(src.trimOut);track.trimOut=out==null?null:Math.max(track.trimIn,out);
   for(const key of['fadeInStart','fadeInEnd','fadeOutStart','fadeOutEnd'])track[key]=finiteOrNull(src[key]);
@@ -51,7 +53,7 @@ export function applyTrackSnapshot(track,src,{applyMarkers=true}={}){
 
 export function applyProjectSnapshot(state,data,{loadedOnly=true}={}){
   validateProject(data);
-  state.bpm=clamp(num(data.bpm,state.bpm||120),40,240);
+  state.bpm=clamp(num(data.bpm,state.bpm||120),40,240);state.meterPreference=data.meterPreference||state.meterPreference||'auto';state.meter=data.meter||state.meter||'4/4';state.beatsPerBar=meterBeats(data.beatsPerBar??state.beatsPerBar);
   state.viewDuration=Math.max(10,num(data.viewDuration,state.viewDuration||60));
   state.pxPerSecond=clamp(num(data.pxPerSecond,state.pxPerSecond||8),5,28);
   if(typeof data.snapMode==='string')state.snapMode=data.snapMode;
