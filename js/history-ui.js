@@ -21,58 +21,23 @@ function syncInputs(){
   window.dispatchEvent(new CustomEvent('phase:meter-change'));
 }
 
-function updateButtons(){
-  const u=$('#undoPhase'),r=$('#redoPhase');if(u)u.disabled=!undo.length;if(r)r.disabled=!redo.length;
-}
-
+function updateButtons(){const u=$('#undoPhase'),r=$('#redoPhase');if(u)u.disabled=!undo.length;if(r)r.disabled=!redo.length}
 function begin(){if(before)return;before=snapshotProject(state);beforeFp=editableFingerprint(state)}
-function commit(){
-  if(!before)return;
-  const now=editableFingerprint(state);
-  if(now!==beforeFp){undo.push(before);if(undo.length>MAX)undo.shift();redo.length=0}
-  before=null;beforeFp='';updateButtons();
-}
-
-function apply(snap,label){
-  const wasDirty=state.dirty,renderChanged=renderFingerprint(state)!==renderFingerprint(snap);
-  applyProjectSnapshot(state,snap,{loadedOnly:true});syncInputs();
-  if(wasDirty||renderChanged)markDirty();
-  $('#engineState').textContent=state.dirty?`${label} · VISUAL CHANGES PENDING`:`${label} · APPLIED`;
-}
-
-function doUndo(){
-  commit();if(!undo.length)return;
-  const current=snapshotProject(state),snap=undo.pop();redo.push(current);apply(snap,'UNDO');updateButtons();
-}
-function doRedo(){
-  commit();if(!redo.length)return;
-  const current=snapshotProject(state),snap=redo.pop();undo.push(current);apply(snap,'REDO');updateButtons();
-}
+function commit(){if(!before)return;const now=editableFingerprint(state);if(now!==beforeFp){undo.push(before);if(undo.length>MAX)undo.shift();redo.length=0}before=null;beforeFp='';updateButtons()}
+function apply(snap,label){const wasDirty=state.dirty,renderChanged=renderFingerprint(state)!==renderFingerprint(snap);applyProjectSnapshot(state,snap,{loadedOnly:true});syncInputs();if(wasDirty||renderChanged)markDirty();$('#engineState').textContent=state.dirty?`${label} · VISUAL CHANGES PENDING`:`${label} · APPLIED`}
+function doUndo(){commit();if(!undo.length)return;const current=snapshotProject(state),snap=undo.pop();redo.push(current);apply(snap,'UNDO');updateButtons()}
+function doRedo(){commit();if(!redo.length)return;const current=snapshotProject(state),snap=redo.pop();undo.push(current);apply(snap,'REDO');updateButtons()}
 
 function trackedTarget(el){
   if(!el||!el.closest)return false;
-  if(el.closest('#undoPhase,#redoPhase,#saveMap,#loadMap,#restoreSession,#play,#stop,#auditionAlign,#render,#exportWav,#exportLoop,#install,#analyze,#loopToggle'))return false;
+  if(el.closest('#undoPhase,#redoPhase,#saveMap,#loadMap,#restoreSession,#play,#stop,#auditionAlign,#render,#exportWav,#exportLoop,#install,#analyze,#loopToggle,[data-load],[data-file]'))return false;
   if(el.closest('.marker,.lane'))return true;
-  if(el.matches('input[id^="bpm-"],input[id^="pitch-"],input[id^="offset-"],input[id^="gain-"],#projectBpm,#phraseSnap,#meterMode'))return true;
-  if(el.closest('[id^="alignSet-"],#alignB,#matchKey,#resetWarp,#setTrimIn,#setTrimOut,#clearTrim,#regionToLoop,#clearRegion,#fadeIn,#fadeOut,#crossfade,#clearFades,#tempoHalf,#tempoDouble,#suggestPair'))return true;
+  if(el.matches('input[id^="bpm-"],input[id^="pitch-"],input[id^="offset-"],input[id^="gain-"],#projectBpm,#phraseSnap,#meterMode,.stem-gain'))return true;
+  if(el.closest('[id^="alignSet-"],#alignB,#matchKey,#resetWarp,#setTrimIn,#setTrimOut,#clearTrim,#regionToLoop,#clearRegion,#fadeIn,#fadeOut,#crossfade,#clearFades,#tempoHalf,#tempoDouble,#suggestPair,#stemUse,.stem-mute'))return true;
   return false;
 }
 
-function installButtons(){
-  if($('#undoPhase'))return;
-  const u=document.createElement('button'),r=document.createElement('button');u.className=r.className='btn';u.id='undoPhase';r.id='redoPhase';u.textContent='↶ UNDO';r.textContent='↷ REDO';u.title='Undo visual/project metadata edit';r.title='Redo visual/project metadata edit';
-  $('#saveMap').before(u,r);u.onclick=doUndo;r.onclick=doRedo;updateButtons();
-}
-
-document.addEventListener('pointerdown',e=>{if(trackedTarget(e.target))begin()},true);
-document.addEventListener('focusin',e=>{if(trackedTarget(e.target))begin()},true);
-document.addEventListener('change',e=>{if(trackedTarget(e.target))setTimeout(commit,0)},true);
-document.addEventListener('click',e=>{if(trackedTarget(e.target))setTimeout(commit,0)},true);
-window.addEventListener('mouseup',()=>setTimeout(commit,0),true);
-window.addEventListener('keydown',e=>{
-  if(!(e.ctrlKey||e.metaKey)||e.altKey)return;
-  if(e.code==='KeyZ'){e.preventDefault();e.shiftKey?doRedo():doUndo()}
-  else if(e.code==='KeyY'){e.preventDefault();doRedo()}
-});
-
+function installButtons(){if($('#undoPhase'))return;const u=document.createElement('button'),r=document.createElement('button');u.className=r.className='btn';u.id='undoPhase';r.id='redoPhase';u.textContent='↶ UNDO';r.textContent='↷ REDO';u.title='Undo visual/project metadata edit';r.title='Redo visual/project metadata edit';$('#saveMap').before(u,r);u.onclick=doUndo;r.onclick=doRedo;updateButtons()}
+document.addEventListener('pointerdown',e=>{if(trackedTarget(e.target))begin()},true);document.addEventListener('focusin',e=>{if(trackedTarget(e.target))begin()},true);document.addEventListener('change',e=>{if(trackedTarget(e.target))setTimeout(commit,0)},true);document.addEventListener('click',e=>{if(trackedTarget(e.target))setTimeout(commit,0)},true);window.addEventListener('mouseup',()=>setTimeout(commit,0),true);
+window.addEventListener('keydown',e=>{if(!(e.ctrlKey||e.metaKey)||e.altKey)return;if(e.code==='KeyZ'){e.preventDefault();e.shiftKey?doRedo():doUndo()}else if(e.code==='KeyY'){e.preventDefault();doRedo()}});
 installButtons();window.addEventListener('resize',installButtons);
