@@ -24,14 +24,18 @@ test('every local index asset exists in the repository',()=>{
 });
 
 test('every service-worker shell asset exists',()=>{
-  const assets=serviceWorkerAssets(read('sw.js'));assert.ok(assets.includes('recovery.html'));assert.ok(assets.includes('ui-polish.css'));assert.ok(assets.includes('js/runtime-guard.js'));
+  const assets=serviceWorkerAssets(read('sw.js'));assert.ok(assets.includes('recovery.html'));assert.ok(assets.includes('ui-polish.css'));assert.ok(assets.includes('js/runtime-guard.js'));assert.ok(assets.includes('js/optional-ui.js'));
   for(const asset of assets){if(asset==='')continue;assert.ok(existsSync(resolve(root,asset)),`missing service-worker asset: ${asset}`)}
 });
 
-test('Pages artifact copies all root runtime assets',()=>{
+test('Pages artifact copies all root runtime assets and emits build metadata',()=>{
   const workflow=read('.github/workflows/pages.yml');
   for(const asset of['index.html','recovery.html','styles.css','ui-polish.css','manifest.webmanifest','sw.js'])assert.match(workflow,new RegExp(`\\b${asset.replace('.','\\.')}\\b`),`Pages workflow must copy ${asset}`);
-  assert.match(workflow,/cp -R icons js _site\//);
+  assert.match(workflow,/cp -R icons js _site\//);assert.match(workflow,/_site\/build\.json/);assert.match(workflow,/GITHUB_SHA/);
+});
+
+test('deployed build metadata stays network-first through the service worker',()=>{
+  const sw=read('sw.js');assert.match(sw,/build\.json/);assert.match(sw,/networkFirst\(event\.request\)/);
 });
 
 test('visible Phase version and cache-bust generation stay consistent',()=>{
