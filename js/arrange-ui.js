@@ -1,5 +1,5 @@
 import{state,$,$$,markDirty}from'./state.js';
-import{firstDownbeatIndex,snapTrackOffset,alignByMarkers}from'./arrangement.js';
+import{firstDownbeatIndex,snapTrackOffset,alignByMarkers,meterBeats}from'./arrangement.js';
 
 const style=document.createElement('style');
 style.textContent=`
@@ -16,7 +16,8 @@ document.head.appendChild(style);
 state.snapMode=state.snapMode||'beat';
 for(const t of state.tracks){t.alignMarker=Number.isInteger(t.alignMarker)?t.alignMarker:null;t.mute=!!t.mute;t.solo=!!t.solo}
 
-function markerLabel(track,idx){const m=track.markers[idx];if(!m)return'—';return`${Math.floor(idx/4)+1}.${idx%4+1}`}
+function trackBpb(track){return meterBeats(track?.analysis?.beatsPerBar??track?.beatsPerBar??state.beatsPerBar??4)}
+function markerLabel(track,idx){const m=track.markers[idx];if(!m)return'—';const bpb=trackBpb(track);return`${Math.floor(idx/bpb)+1}.${idx%bpb+1}`}
 function chosenAlignIndex(track){return Number.isInteger(track.alignMarker)&&track.markers[track.alignMarker]?track.alignMarker:firstDownbeatIndex(track)}
 function setText(el,text){if(el&&el.textContent!==text)el.textContent=text}
 
@@ -25,7 +26,7 @@ function refreshAlignDecor(){
     const idx=chosenAlignIndex(t);t.alignMarker=idx;
     $$(`.marker[data-track="${t.id}"]`).forEach(el=>el.classList.toggle('alignpoint',+el.dataset.beat===idx));
     setText($(`#alignSet-${t.id}`),`ALIGN @ ${markerLabel(t,idx)}`);
-    setText($(`#alignRead-${t.id}`),`A ${markerLabel(t,idx)}`);
+    setText($(`#alignRead-${t.id}`),`${t.meter||t.analysis?.meter||'4/4'} · ${markerLabel(t,idx)}`);
     const m=$(`#mute-${t.id}`);if(m)m.classList.toggle('active',t.mute);
     const s=$(`#solo-${t.id}`);if(s)s.classList.toggle('active',t.solo);
   }
@@ -56,7 +57,7 @@ function addSnapControl(){
   const label=document.createElement('span');label.className='label section';label.textContent='SNAP';
   const select=document.createElement('select');select.id='phraseSnap';select.className='snap-select';
   select.innerHTML='<option value="beat">BEAT</option><option value="bar">BAR</option><option value="8bar">8 BARS</option><option value="16bar">16 BARS</option><option value="32bar">32 BARS</option><option value="off">OFF</option>';
-  select.value=state.snapMode;select.onchange=()=>{state.snapMode=select.value;$('#engineState').textContent=`MOVE SNAP · ${select.options[select.selectedIndex].text}`};
+  select.value=state.snapMode;select.onchange=()=>{state.snapMode=select.value;$('#engineState').textContent=`MOVE SNAP · ${select.options[select.selectedIndex].text} · ${state.meter||'4/4'}`};
   const reset=$('#resetWarp');reset.after(label,select);
 }
 
@@ -67,8 +68,8 @@ function alignSelected(){
   const ai=chosenAlignIndex(a),bi=chosenAlignIndex(b);alignByMarkers(a,b,ai,bi);
   b.timelineOffset=a.timelineOffset||0;
   const off=$(`#offset-${b.id}`);off.value=b.timelineOffset.toFixed(2);off.onchange?.({target:off});
-  state.bpm=a.sourceBpm;$('#projectBpm').value=state.bpm.toFixed(2);markDirty();refreshAlignDecor();
-  $('#engineState').textContent=`ALIGNED · A ${markerLabel(a,ai)} ↔ B ${markerLabel(b,bi)} · ${state.bpm.toFixed(2)} BPM`;
+  state.bpm=a.sourceBpm;state.beatsPerBar=trackBpb(a);state.meter=a.meter||a.analysis?.meter||state.meter||'4/4';$('#projectBpm').value=state.bpm.toFixed(2);markDirty();refreshAlignDecor();window.dispatchEvent(new CustomEvent('phase:meter-change'));
+  $('#engineState').textContent=`ALIGNED · A ${markerLabel(a,ai)} ↔ B ${markerLabel(b,bi)} · ${state.bpm.toFixed(2)} BPM · ${state.meter}`;
 }
 
 function overrideMove(){
@@ -80,7 +81,7 @@ function overrideMove(){
       const rect=lane.getBoundingClientRect(),startX=e.clientX,startOffset=track.timelineOffset||0,view=state.viewDuration,anchorIdx=chosenAlignIndex(track),anchorTime=track.markers[anchorIdx]?.targetTime||0,input=$(`#offset-${track.id}`);
       lane.classList.add('move-active');let raf=0,pending=startOffset;
       const apply=()=>{raf=0;track.timelineOffset=pending;input.value=pending.toFixed(2);input.onchange?.({target:input})};
-      const move=ev=>{let next=startOffset+(ev.clientX-startX)/rect.width*view;if(!ev.shiftKey)next=snapTrackOffset(next,anchorTime,state.bpm,state.snapMode);pending=next;if(!raf)raf=requestAnimationFrame(apply);$('#engineState').textContent=`MOVING ${track.label} · ${next.toFixed(2)}s · ${ev.shiftKey?'FREE':state.snapMode.toUpperCase()+' SNAP'}`};
+      const move=ev=>{let next=startOffset+(ev.clientX-startX)/rect.width*view;if(!ev.shiftKey)next=snapTrackOffset(next,anchorTime,state.bpm,state.snapMode,state.beatsPerBar||4);pending=next;if(!raf)raf=requestAnimationFrame(apply);$('#engineState').textContent=`MOVING ${track.label} · ${next.toFixed(2)}s · ${ev.shiftKey?'FREE':state.snapMode.toUpperCase()+' SNAP'} · ${state.meter||'4/4'}`};
       const up=()=>{if(raf){cancelAnimationFrame(raf);apply()}lane.classList.remove('move-active');window.removeEventListener('mousemove',move);window.removeEventListener('mouseup',up);$('#engineState').textContent=`${track.label} POSITION PENDING · RENDER TO COMMIT`};
       window.addEventListener('mousemove',move);window.addEventListener('mouseup',up);
     };
@@ -97,4 +98,5 @@ for(const t of state.tracks){const host=$(`#markers-${t.id}`);if(host)observer.o
 window.addEventListener('resize',()=>setTimeout(()=>{addTrackTools();overrideMove();refreshAlignDecor()},0));
 window.addEventListener('phase:project-applied',queueRefresh);
 window.addEventListener('phase:history-applied',queueRefresh);
+window.addEventListener('phase:meter-change',queueRefresh);
 refreshAlignDecor();
