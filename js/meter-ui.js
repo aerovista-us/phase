@@ -4,6 +4,8 @@ import{meterBeats}from'./arrangement.js';
 
 const NAMES={3:'3/4',4:'4/4',6:'6/8'};
 const forcedBeats=value=>({'3/4':3,'4/4':4,'6/8':6}[value]||null);
+const pct=v=>Math.round(Math.max(0,Math.min(1,Number(v)||0))*100);
+const dur=t=>{const n=Math.max(0,Number(t)||0),m=Math.floor(n/60),s=n-m*60;return`${m}:${s.toFixed(1).padStart(4,'0')}`};
 state.meterPreference=state.meterPreference||'auto';state.beatsPerBar=meterBeats(state.beatsPerBar||4);state.meter=state.meter||NAMES[state.beatsPerBar];
 for(const t of state.tracks){t.meterPreference=t.meterPreference||state.meterPreference||'auto';t.beatsPerBar=meterBeats(t.beatsPerBar||t.analysis?.beatsPerBar||4);t.meter=t.meter||t.analysis?.meter||NAMES[t.beatsPerBar]}
 
@@ -32,7 +34,12 @@ function adoptProjectMeter(){
   const bpb=forced||meterBeats(authority?.analysis?.beatsPerBar??authority?.beatsPerBar??state.beatsPerBar),name=forced?NAMES[forced]:(authority?.analysis?.meter||authority?.meter||NAMES[bpb]);
   state.beatsPerBar=bpb;state.meter=name;
 }
-function analysisSummary(){return state.tracks.filter(t=>t.analysis).map(t=>{const a=t.analysis,mc=Math.round((a.meterConfidence||0)*100),oct=a.tempoOctaveAdjusted?` · octave ${Number(a.rawBpm||a.bpm).toFixed(1)}→${Number(a.bpm).toFixed(1)}`:'';return`${t.label}: ${Number(t.sourceBpm||a.bpm).toFixed(2)} BPM · ${t.meter} ${mc}% meter${oct} · ${a.key||'key ?'}`}).join(' · ')}
+function analysisSummary(){return state.tracks.filter(t=>t.analysis).map(t=>{const a=t.analysis,mc=pct(a.meterConfidence),oct=a.tempoOctaveAdjusted?` · octave ${Number(a.rawBpm||a.bpm).toFixed(1)}→${Number(a.bpm).toFixed(1)}`:'';return`${t.label}: ${Number(t.sourceBpm||a.bpm).toFixed(2)} BPM · ${t.meter} ${mc}% meter${oct} · ${a.key||'key ?'}`}).join(' · ')}
+function decorateSummary(track){
+  const sub=$(`#sub-${track.id}`),a=track.analysis;if(!sub||!a)return;
+  const meter=track.meter||a.meter||'4/4',line1=`${dur(track.duration)} · ${Number(track.sourceBpm||a.bpm||120).toFixed(2)} BPM · ${a.key||'KEY ?'}`,line2=`${meter} · T${pct(a.tempoConfidence)} M${pct(a.meterConfidence)} D${pct(a.downbeatConfidence)} K${pct(a.keyConfidence)} · ${track.markers?.length||0} beats`,text=`${line1}\n${line2}`;
+  if(sub.textContent!==text)sub.textContent=text;sub.title=`Tempo ${pct(a.tempoConfidence)}% · Meter ${meter} ${pct(a.meterConfidence)}% · Downbeat ${pct(a.downbeatConfidence)}% · Key ${a.key||'?'} ${pct(a.keyConfidence)}%${a.tempoOctaveAdjusted?` · Tempo octave adjusted from ${Number(a.rawBpm||0).toFixed(2)} BPM`:''}`;
+}
 function normalizeAnalyzedTracks(){for(const t of state.tracks)if(t.analysis)recalcTrack(t,t.meterPreference||state.meterPreference);adoptProjectMeter();decorateAll();const summary=analysisSummary();if(summary)$('#engineState').textContent=`ANALYSIS READY · ${summary}`;window.dispatchEvent(new CustomEvent('phase:meter-change'))}
 
 function installControl(){
@@ -52,14 +59,14 @@ function repaintRuler(){
   const stale=ticks.length!==expected||ticks.some(x=>x.dataset.meterAware!==String(bpb));if(!stale)return;ticks.forEach(x=>x.remove());const frag=document.createDocumentFragment(),barPx=bar*(state.pxPerSecond||8),labelEvery=barPx>=38?1:barPx>=20?2:4;
   for(let i=0;i<=bars;i++){const el=document.createElement('div');el.className='bar-tick'+(i%4===0?' major':'');el.dataset.meterAware=String(bpb);el.style.left=`${i*bar/view*100}%`;if(i%labelEvery===0)el.textContent=String(i+1);frag.appendChild(el)}host.prepend(frag);
 }
-function decorateAll(){installControl();repaintRuler();state.tracks.forEach(decorateMarkers)}
+function decorateAll(){installControl();repaintRuler();state.tracks.forEach(t=>{decorateMarkers(t);decorateSummary(t)})}
 
 let queued=false;const queueDecorate=()=>{if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;decorateAll()})};
 const observer=new MutationObserver(queueDecorate);
 function bindObservers(){const ruler=$('.ruler-lines');if(ruler&&!ruler.dataset.meterObserved){ruler.dataset.meterObserved='1';observer.observe(ruler,{childList:true})}for(const t of state.tracks){const host=$(`#markers-${t.id}`);if(host&&!host.dataset.meterObserved){host.dataset.meterObserved='1';observer.observe(host,{childList:true})}}}
 
 const analyze=$('#analyze');if(analyze)analyze.addEventListener('click',()=>{for(const t of state.tracks)t.meterPreference=state.meterPreference||'auto'},true);
-let lastAnalysis='';setInterval(()=>{bindObservers();const sig=state.tracks.map(t=>t.analysis?`${t.analysis.bpm}|${t.analysis.meter}|${t.analysis.beatsPerBar}|${t.analysis.downbeatPhase}|${t.markers?.length}`:'').join(';');if(sig!==lastAnalysis){lastAnalysis=sig;if(sig)normalizeAnalyzedTracks();else queueDecorate()}},180);
+let lastAnalysis='';setInterval(()=>{bindObservers();const sig=state.tracks.map(t=>t.analysis?`${t.analysis.bpm}|${t.analysis.meter}|${t.analysis.beatsPerBar}|${t.analysis.downbeatPhase}|${t.markers?.length}`:'').join(';');if(sig!==lastAnalysis){lastAnalysis=sig;if(sig)normalizeAnalyzedTracks();else queueDecorate()}else state.tracks.forEach(decorateSummary)},300);
 window.addEventListener('resize',()=>{bindObservers();queueDecorate()});
 window.addEventListener('phase:project-applied',()=>{state.tracks.forEach(t=>{t.meterPreference=t.meterPreference||state.meterPreference});setTimeout(()=>{adoptProjectMeter();decorateAll();window.dispatchEvent(new CustomEvent('phase:meter-change'))},0)});
 window.addEventListener('phase:history-applied',()=>setTimeout(()=>{adoptProjectMeter();decorateAll()},0));
