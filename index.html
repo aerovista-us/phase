@@ -8,13 +8,13 @@
 <meta name="description" content="EchoVerse Phase — local-first audio warp, sync and remix workstation.">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icons/phase.svg" type="image/svg+xml">
-<link rel="stylesheet" href="./styles.css?v=0800">
-<link rel="stylesheet" href="./ui-polish.css?v=0800">
+<link rel="stylesheet" href="./styles.css?v=0801">
+<link rel="stylesheet" href="./ui-polish.css?v=0801">
 </head>
 <body>
 <div class="app">
   <header class="topbar">
-    <div class="brand"><span class="ev">ECHOVERSE AUDIO</span><span class="name">PHASE</span><span class="tag">ALPHA 0.8</span></div>
+    <div class="brand"><span class="ev">ECHOVERSE AUDIO</span><span class="name">PHASE</span><span class="tag">ALPHA 0.8.1</span></div>
     <div class="transport"><button class="btn primary" id="play">▶ PLAY</button><button class="btn" id="stop">■ STOP</button></div>
     <label class="field">PROJECT BPM <input id="projectBpm" type="number" min="40" max="240" step="0.01" value="120"></label>
     <div class="spacer"></div>
@@ -43,11 +43,12 @@
       <div class="card"><h3>Architecture</h3><div class="meta"><span>Audio</span><span>LAST RENDER</span><span>Visual</span><span>LIVE EDIT MAP</span><span>Warp</span><span>NONDESTRUCTIVE</span><span>Pitch</span><span>SEPARATE</span></div></div>
       <div class="card"><h3>Render state</h3><div class="status-pill"><span class="dot" id="renderDot"></span><span id="renderState">AUDIO CURRENT</span></div></div>
       <div class="card"><h3>Selected marker</h3><div class="meta"><span>Track</span><span id="selTrack">—</span><span>Beat</span><span id="selBeat">—</span><span>Source</span><span id="selSource">—</span><span>Target</span><span id="selTarget">—</span></div></div>
-      <div class="card"><h3>Workflow</h3><div class="sub">Load → Analyze → choose ALIGN points → phrase-snap the arrangement → grid-correct or warp → trim/select a region → audition → Render Changes → Export WAV.</div></div>
+      <div class="card"><h3>Workflow</h3><div class="sub">Load → Analyze → choose ALIGN points → phrase-snap the arrangement → grid-correct or warp → trim/select a region → fade/crossfade → audition → Render Changes → Export WAV.</div></div>
       <div class="card"><h3>Arrangement editing</h3><div class="sub">Select a track, place the playhead, then I / O sets nondestructive IN and OUT points. REGION selects a reusable project range; Shift-drag bypasses snapping. Region → Loop makes that range the audition/export loop.</div></div>
+      <div class="card"><h3>Fades</h3><div class="sub">With a REGION selected, FADE IN / OUT applies to the active track instantly in the mix layer. A→B crossfades Track A out and Track B in over the same region. These do not require a DSP render.</div></div>
       <div class="card"><h3>Project transport</h3><div class="sub">Click or drag the ruler to seek. Playback starts at the playhead. Use a 4 / 8 / 16 / 32-bar audition loop around the current phrase and export that loop as a quick WAV when useful.</div></div>
       <div class="card"><h3>Session safety</h3><div class="sub">Phase remembers the latest project map locally and supports metadata Undo / Redo. Audio files remain local; reload the same source files to reconnect a restored session.</div></div>
-      <div class="card"><h3>Audition + mix</h3><div class="sub">MUTE and SOLO are audition helpers. Track LEVEL is applied to full playback, focused alignment audition, and WAV output.</div></div>
+      <div class="card"><h3>Audition + mix</h3><div class="sub">MUTE and SOLO are audition helpers. Track LEVEL, trims and fades are applied to playback, focused alignment audition, and WAV output.</div></div>
       <div class="card"><h3>Render model</h3><div class="sub">Dragging stays visual-only and instant. Playback keeps using the last completed audio until Render Changes runs the pitch-preserving worker. Source audio is never overwritten.</div></div>
     </aside>
     <section class="timeline" id="timeline">
@@ -56,7 +57,7 @@
     </section>
   </main>
 
-  <footer class="footer"><span>PHASE 0.8</span><span>LOCAL-FIRST PWA</span><span id="engineState">ENGINE READY</span><span class="right"><span class="kbd">W</span> warp &nbsp; <span class="kbd">A</span> anchor &nbsp; <span class="kbd">G</span> grid &nbsp; <span class="kbd">M</span> move &nbsp; <span class="kbd">R</span> region &nbsp; <span class="kbd">I/O</span> trim &nbsp; <span class="kbd">L</span> loop &nbsp; <span class="kbd">Ctrl+Z</span> undo</span></footer>
+  <footer class="footer"><span>PHASE 0.8.1</span><span>LOCAL-FIRST PWA</span><span id="engineState">ENGINE READY</span><span class="right"><span class="kbd">W</span> warp &nbsp; <span class="kbd">A</span> anchor &nbsp; <span class="kbd">G</span> grid &nbsp; <span class="kbd">M</span> move &nbsp; <span class="kbd">R</span> region &nbsp; <span class="kbd">I/O</span> trim &nbsp; <span class="kbd">L</span> loop &nbsp; <span class="kbd">Ctrl+Z</span> undo</span></footer>
 </div>
 <input id="mapFile" type="file" accept="application/json,.json" hidden>
 <script>
@@ -64,15 +65,16 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(console.warn);
 }
 </script>
-<script type="module" src="./js/app.js?v=0800"></script>
-<script type="module" src="./js/arrange-ui.js?v=0800"></script>
-<script type="module" src="./js/mix-ui.js?v=0800"></script>
-<script type="module" src="./js/project-ui.js?v=0800"></script>
-<script type="module" src="./js/history-ui.js?v=0800"></script>
-<script type="module" src="./js/visual-guides.js?v=0800"></script>
-<script type="module" src="./js/transport-ui.js?v=0800"></script>
-<script type="module" src="./js/export-loop-ui.js?v=0800"></script>
-<script type="module" src="./js/trim-ui.js?v=0800"></script>
-<script type="module" src="./js/region-ui.js?v=0800"></script>
+<script type="module" src="./js/app.js?v=0801"></script>
+<script type="module" src="./js/arrange-ui.js?v=0801"></script>
+<script type="module" src="./js/mix-ui.js?v=0801"></script>
+<script type="module" src="./js/project-ui.js?v=0801"></script>
+<script type="module" src="./js/history-ui.js?v=0801"></script>
+<script type="module" src="./js/visual-guides.js?v=0801"></script>
+<script type="module" src="./js/transport-ui.js?v=0801"></script>
+<script type="module" src="./js/export-loop-ui.js?v=0801"></script>
+<script type="module" src="./js/trim-ui.js?v=0801"></script>
+<script type="module" src="./js/region-ui.js?v=0801"></script>
+<script type="module" src="./js/fade-ui.js?v=0801"></script>
 </body>
 </html>
