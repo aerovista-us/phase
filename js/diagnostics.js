@@ -51,6 +51,7 @@ export function projectDiagnostics(state,environment={}){
   if(state?.dirty)warnings.push('VISUAL_CHANGES_PENDING');
   if(state?.rendering)warnings.push('RENDER_IN_PROGRESS');
   if(audioMemoryBytes>memoryWarnBytes)warnings.push('AUDIO_MEMORY_HIGH');
+  if(environment.deployedVersion&&environment.version&&String(environment.deployedVersion)!==String(environment.version))warnings.push('APP_UPDATE_AVAILABLE');
   if(environment.serviceWorker===false)warnings.push('SERVICE_WORKER_UNAVAILABLE');
   if(environment.worker===false)warnings.push('WEB_WORKER_UNAVAILABLE');
   if(environment.webAudio===false)warnings.push('WEB_AUDIO_UNAVAILABLE');
