@@ -4,9 +4,9 @@
 
 Live alpha: **https://phase.aerovista.us/**
 
-## Current foundation — Phase 0.12.6
+## Current foundation — Phase 0.12.7
 
-Phase is now a functional local-first mashup workstation with recovery, diagnostics, staged startup, lightweight project packaging and an original first-run demo.
+Phase is now a functional local-first mashup workstation with recovery, diagnostics, staged startup, lightweight project packaging, lifecycle-safe session persistence and an original first-run demo.
 
 Implemented today:
 
@@ -32,20 +32,23 @@ Implemented today:
 - hybrid render path that preserves original PCM outside dirty warp regions
 - sparse dirty-region granular DSP, quality modes, cancellation, work stats and render reuse
 - project save/load, local session restore, metadata Undo / Redo and one-pass source relinking
+- periodic autosave plus lifecycle persistence on page hide, freeze and close transitions
 - source/stem identity using filename plus lightweight size/type/modified metadata
 - **SAVE PACKAGE** project files with explicit source/stem asset manifests while keeping audio bytes external
+- project schema compatibility guard: legacy maps remain readable while unsupported future schemas are refused safely
 - canonical Vocals / Drums / Bass / Other stem slots per track
 - manual stem loading plus optional HTTP/NXCore separation-provider contract
 - stem-aware playback, rendering, loops, export, per-stem LEVEL / MUTE / SOLO and project persistence
 - built-in diagnostics for runtime, PWA/storage, grid/render state, decoded-audio memory and browser capability
 - launch/runtime error ring buffer plus standalone `recovery.html` that does not load workstation modules
+- support snapshot and redacted support snapshot export without audio bytes
 - non-destructive app-cache reset and render-cache recovery controls
 - contextual Quick Start help and complete keyboard map
 - keyboard-focusable musical markers, live status announcements, semantic controls, reduced-motion and high-contrast handling
 - staged startup: core editor first, secondary DEMO/STEMS/DIAG/HELP UI after first paint/idle
 - local boot timing telemetry in DIAG
 - deployed `build.json` identity containing version, commit and build time, with stale-app detection
-- static-shell CI checks that verify Pages artifact coverage, PWA assets, version consistency and runtime-guard ordering
+- static-shell CI checks that verify Pages artifact coverage, the complete offline JavaScript module graph, relative imports, version consistency and runtime-guard ordering
 - original procedural two-track **DEMO** generated locally and loaded through Phase's real file/decode path
 - responsive workstation containment and network-first alpha PWA update handling
 
@@ -118,12 +121,15 @@ Completed:
 - PWA/cache recovery without intentionally deleting the saved project map
 - one-pass source/stem relinking with lightweight identity checks
 - SAVE PACKAGE asset-manifest workflow
+- project schema compatibility guard
+- support snapshot / redacted support snapshot workflow
+- periodic + page lifecycle session persistence
 - keyboard map and contextual help
 - accessibility/focus pass
 - decoded-audio memory diagnostics and device-aware caution thresholds
 - staged optional UI loading and boot timing telemetry
 - deployed build identity/stale-app detection
-- Pages/static-shell integrity tests
+- Pages/static-shell/offline module integrity tests
 - original procedural first-run DEMO
 
 Remaining before 1.0:
