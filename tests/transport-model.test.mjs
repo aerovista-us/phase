@@ -11,4 +11,6 @@ test('project playback honors non-destructive source trim',()=>{assert.deepEqual
 
 test('phrase loop snaps to the containing phrase',()=>{const loop=phraseLoopAt(34,120,8);assert.equal(loop.duration,16);assert.equal(loop.start,32);assert.equal(loop.end,48)});
 
+test('phrase loop duration follows project meter',()=>{const three=phraseLoopAt(25,120,8,3);assert.equal(three.duration,12);assert.equal(three.start,24);assert.equal(three.end,36);const six=phraseLoopAt(49,120,8,6);assert.equal(six.duration,24);assert.equal(six.start,48);assert.equal(six.end,72)});
+
 test('playhead clamps to project view',()=>{assert.equal(clampPlayhead(-2,60),0);assert.equal(clampPlayhead(70,60),60);assert.equal(clampPlayhead(12,60),12)});
