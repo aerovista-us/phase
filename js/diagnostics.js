@@ -46,7 +46,7 @@ export function trackDiagnostics(track){
 }
 
 export function projectDiagnostics(state,environment={}){
-  const tracks=(state?.tracks||[]).map(trackDiagnostics),warnings=[],audioMemoryBytes=tracks.reduce((sum,t)=>sum+(t.memoryBytes||0),0),memoryWarnBytes=Math.max(128*1024*1024,num(environment.audioMemoryWarnBytes,512*1024*1024));
+  const tracks=(state?.tracks||[]).map(trackDiagnostics),warnings=[],audioMemoryBytes=tracks.reduce((sum,t)=>sum+(t.memoryBytes||0),0),memoryWarnBytes=Math.max(1,num(environment.audioMemoryWarnBytes,512*1024*1024));
   for(const t of tracks)for(const w of t.warnings)warnings.push(`${t.label}:${w}`);
   if(state?.dirty)warnings.push('VISUAL_CHANGES_PENDING');
   if(state?.rendering)warnings.push('RENDER_IN_PROGRESS');
