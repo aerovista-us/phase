@@ -1,7 +1,7 @@
 import{state,$,$$,markCurrent}from'./state.js';
 import{ensureAudio,stopAudio}from'./audio.js';
 import{projectPlaybackWindow}from'./transport-model.js';
-import{trackNeedsRender,renderTrack}from'./render.js';
+import{trackNeedsRender,renderTrack,cancelActiveRender}from'./render.js';
 import{renderMix,downloadWav}from'./export.js';
 import{firstDownbeatIndex}from'./arrangement.js';
 import{applyGainEnvelope}from'./fade-model.js';
@@ -29,13 +29,32 @@ function playMix(){if(state.playing){stopAudio();resetTransport();return false}c
 function alignIndex(track){return Number.isInteger(track.alignMarker)&&track.markers[track.alignMarker]?track.alignMarker:firstDownbeatIndex(track)}
 function auditionMix(seconds=12){if(state.rendering)return false;if(state.dirty){$('#engineState').textContent='AUDITION NEEDS CURRENT AUDIO · RENDER CHANGES FIRST';return false}const a=state.tracks[0];if(!a.buffer||!a.markers.length)return false;const tracks=eligible();if(!tracks.length)return false;const ai=alignIndex(a),center=(a.renderedOffset??a.timelineOffset??0)+(a.markers[ai]?.targetTime||0),start=Math.max(0,center-4),end=start+seconds;stopAudio();const ctx=ensureAudio();if(ctx.state==='suspended')ctx.resume();const base=ctx.currentTime+.04;state.sources=[];let last=null,lastEnd=-1;for(const t of tracks){const buffer=t.renderedBuffer||t.buffer,offset=t.renderedOffset??0,w=projectPlaybackWindow(offset,buffer.duration,start,end,t.trimIn||0,t.trimOut==null?buffer.duration:t.trimOut);if(!w)continue;const src=ctx.createBufferSource(),gain=ctx.createGain(),baseGain=.82*dbToGain(t.gainDb)/Math.sqrt(Math.max(1,tracks.length));src.buffer=buffer;applyGainEnvelope(gain.gain,baseGain,fadeItem(t,offset),w.projectStart,w.projectEnd,base+w.delay);src.connect(gain).connect(ctx.destination);src.start(base+w.delay,w.sourceOffset,w.duration);state.sources.push(src);if(w.delay+w.duration>lastEnd){lastEnd=w.delay+w.duration;last=src}}if(!state.sources.length)return false;state.playing=true;$('#auditionAlign').textContent='■ STOP AUDITION';$('#engineState').textContent=`AUDITION · ${start.toFixed(2)}s → ${end.toFixed(2)}s`;if(last)last.onended=()=>{if(state.playing){stopAudio();resetTransport();$('#engineState').textContent='AUDITION COMPLETE'}};return true}
 
-export async function makeAudioCurrent(){if(!state.dirty)return;const loaded=state.tracks.filter(t=>t.buffer);if(!loaded.length)return;stopAudio();state.rendering=true;$('#render').disabled=true;$('#engineState').textContent='PREPARING MIX…';try{let done=0,work=loaded.filter(trackNeedsRender);for(const t of loaded){if(!trackNeedsRender(t)){t.renderedBuffer=null;t.renderedOffset=t.timelineOffset||0;t.renderedAt=Date.now();continue}t.renderedBuffer=await renderTrack(t,p=>{$('#engineState').textContent=`RENDERING ${t.label} · ${Math.round(p*100)}% · ${done+1}/${work.length}`});t.renderedOffset=t.timelineOffset||0;t.renderedAt=Date.now();done++}markCurrent();window.dispatchEvent(new Event('resize'));$('#engineState').textContent='AUDIO CURRENT · MIX READY'}finally{state.rendering=false;$('#render').disabled=false}}
+function statsText(tracks){const stats=tracks.map(t=>t.renderStats).filter(s=>s&&Number.isFinite(s.totalGrains)&&s.totalGrains>0);if(!stats.length)return'PLACEMENT / DIRECT PCM';const processed=stats.reduce((n,s)=>n+(s.processedGrains||0),0),total=stats.reduce((n,s)=>n+(s.totalGrains||0),0),pct=total?Math.round(processed/total*100):0,quality=String(stats[0].quality||'balanced').toUpperCase();return`${quality} · DSP ${pct}% OF GRAIN WORK`}
 
-async function exportMix(){if(state.rendering)return;if(state.dirty)await makeAudioCurrent();const items=state.tracks.filter(t=>t.renderedBuffer||t.buffer).map(exportItem);if(!items.length)return alert('Load audio first.');const btn=$('#exportWav');btn.disabled=true;$('#engineState').textContent='MIXING WAV…';try{const mix=await renderMix(items,44100);downloadWav(mix,'phase-mix.wav');$('#engineState').textContent='WAV EXPORTED · MIX + TRIMS + FADES APPLIED'}catch(err){console.error(err);$('#engineState').textContent='EXPORT FAILED';alert('Export failed: '+(err.message||err))}finally{btn.disabled=false}}
+export async function makeAudioCurrent(){
+  if(state.rendering)return;
+  if(!state.dirty){$('#engineState').textContent='AUDIO CURRENT';return}
+  const loaded=state.tracks.filter(t=>t.buffer);if(!loaded.length)return;
+  stopAudio();state.rendering=true;const render=$('#render');render.disabled=false;render.textContent='■ CANCEL RENDER';$('#engineState').textContent='PREPARING MIX…';
+  try{
+    let done=0,work=loaded.filter(trackNeedsRender);
+    for(const t of loaded){
+      if(!trackNeedsRender(t)){t.renderedBuffer=null;t.renderedOffset=t.timelineOffset||0;t.renderedAt=Date.now();t.renderStats={quality:'direct',processedGrains:0,totalGrains:0,workRatio:0,dirtyRanges:[]};continue}
+      t.renderedBuffer=await renderTrack(t,p=>{$('#engineState').textContent=`RENDERING ${t.label} · ${Math.round(p*100)}% · ${done+1}/${work.length}`});t.renderedOffset=t.timelineOffset||0;t.renderedAt=Date.now();done++;
+    }
+    markCurrent();window.dispatchEvent(new Event('resize'));$('#engineState').textContent=`AUDIO CURRENT · ${statsText(loaded)}`;
+  }catch(err){
+    if(err?.name==='AbortError'){$('#engineState').textContent='RENDER CANCELLED · VISUAL CHANGES STILL PENDING';return}
+    console.error(err);$('#engineState').textContent='RENDER FAILED';alert('Render failed: '+(err?.message||err));
+  }finally{state.rendering=false;render.disabled=false;render.textContent='⚡ RENDER CHANGES'}
+}
+
+async function exportMix(){if(state.rendering)return;if(state.dirty)await makeAudioCurrent();if(state.dirty||state.rendering)return;const items=state.tracks.filter(t=>t.renderedBuffer||t.buffer).map(exportItem);if(!items.length)return alert('Load audio first.');const btn=$('#exportWav');btn.disabled=true;$('#engineState').textContent='MIXING WAV…';try{const mix=await renderMix(items,44100);downloadWav(mix,'phase-mix.wav');$('#engineState').textContent='WAV EXPORTED · MIX + TRIMS + FADES APPLIED'}catch(err){console.error(err);$('#engineState').textContent='EXPORT FAILED';alert('Export failed: '+(err.message||err))}finally{btn.disabled=false}}
 
 ensureAuditionButton();addMixControls();
 if($('#play'))$('#play').onclick=playMix;
 if($('#auditionAlign'))$('#auditionAlign').onclick=()=>{if(state.playing){stopAudio();resetTransport();return}auditionMix()};
 if($('#stop'))$('#stop').onclick=()=>{stopAudio();resetTransport()};
+if($('#render'))$('#render').onclick=()=>{if(state.rendering){cancelActiveRender();return}makeAudioCurrent()};
 if($('#exportWav'))$('#exportWav').onclick=exportMix;
 window.addEventListener('resize',()=>{ensureAuditionButton();addMixControls()});
