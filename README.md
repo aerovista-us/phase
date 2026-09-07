@@ -4,9 +4,9 @@
 
 Live alpha: **https://phase.aerovista.us/**
 
-## Current foundation — Phase 0.12.7
+## Current foundation — Phase 0.12.8
 
-Phase is now a functional local-first mashup workstation with recovery, diagnostics, staged startup, lightweight project packaging, lifecycle-safe session persistence and an original first-run demo.
+Phase is now a functional local-first mashup workstation with recovery, diagnostics, staged startup, lightweight project packaging, lifecycle-safe session persistence, resource preflight and an original first-run demo.
 
 Implemented today:
 
@@ -40,7 +40,9 @@ Implemented today:
 - manual stem loading plus optional HTTP/NXCore separation-provider contract
 - stem-aware playback, rendering, loops, export, per-stem LEVEL / MUTE / SOLO and project persistence
 - built-in diagnostics for runtime, PWA/storage, grid/render state, decoded-audio memory and browser capability
+- local persistence diagnostics showing writable state, saved-map size/schema/timestamp and warnings when a loaded project is not safely persisted
 - launch/runtime error ring buffer plus standalone `recovery.html` that does not load workstation modules
+- recovery route runtime-history display plus metadata-only recovery report download
 - support snapshot and redacted support snapshot export without audio bytes
 - non-destructive app-cache reset and render-cache recovery controls
 - contextual Quick Start help and complete keyboard map
@@ -48,7 +50,9 @@ Implemented today:
 - staged startup: core editor first, secondary DEMO/STEMS/DIAG/HELP UI after first paint/idle
 - local boot timing telemetry in DIAG
 - deployed `build.json` identity containing version, commit and build time, with stale-app detection
-- static-shell CI checks that verify Pages artifact coverage, the complete offline JavaScript module graph, relative imports, version consistency and runtime-guard ordering
+- render/separation memory preflight using decoded-audio and temporary-working-memory estimates; normal sessions remain silent while unusually large jobs ask before continuing
+- test-gated GitHub Pages deployment: syntax and the full suite run in the deployment workflow before the artifact can publish
+- static-shell CI checks that verify Pages artifact coverage, the complete offline JavaScript module graph, relative imports, version consistency, lifecycle/runtime guard ordering and deploy-gate retention
 - original procedural two-track **DEMO** generated locally and loaded through Phase's real file/decode path
 - responsive workstation containment and network-first alpha PWA update handling
 
@@ -116,7 +120,7 @@ Phase itself stays browser-local and PWA-friendly. GitHub Pages hosts only the s
 Completed:
 
 - diagnostics and recovery tooling
-- standalone recovery route
+- standalone recovery route and metadata-only recovery report
 - launch/runtime error history
 - PWA/cache recovery without intentionally deleting the saved project map
 - one-pass source/stem relinking with lightweight identity checks
@@ -124,12 +128,14 @@ Completed:
 - project schema compatibility guard
 - support snapshot / redacted support snapshot workflow
 - periodic + page lifecycle session persistence
+- local persistence health diagnostics
 - keyboard map and contextual help
 - accessibility/focus pass
 - decoded-audio memory diagnostics and device-aware caution thresholds
+- render/stem-separation resource preflight
 - staged optional UI loading and boot timing telemetry
 - deployed build identity/stale-app detection
-- Pages/static-shell/offline module integrity tests
+- test-gated Pages deployment plus static-shell/offline module integrity tests
 - original procedural first-run DEMO
 
 Remaining before 1.0:
