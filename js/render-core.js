@@ -35,6 +35,16 @@ export function dirtyRenderRanges(markers,duration,pitch=0,tolerance=.0005){
   return ranges;
 }
 
+export function expandRanges(ranges,pad=0,min=0,max=Infinity){
+  const p=Math.max(0,Number(pad)||0),lo=Number.isFinite(Number(min))?Number(min):0,hi=Number.isFinite(Number(max))?Math.max(lo,Number(max)):Infinity,out=[];
+  for(const r of ranges||[]){
+    const start=Math.max(lo,(Number(r.start)||0)-p),end=Math.min(hi,(Number(r.end)||0)+p);if(end<=start)continue;
+    const prev=out.at(-1);if(prev&&start<=prev.end+1e-9)prev.end=Math.max(prev.end,end);else out.push({start,end});
+  }
+  return out;
+}
+
+function timeInRanges(time,ranges){for(const r of ranges||[])if(time>=r.start&&time<=r.end)return true;return false}
 function smooth01(x){const t=Math.max(0,Math.min(1,x));return .5-.5*Math.cos(Math.PI*t)}
 export function dirtyBlendWeight(time,ranges,fadeSeconds=.02){
   const t=Number(time)||0,fade=Math.max(0,Number(fadeSeconds)||0);let weight=0;
@@ -59,14 +69,21 @@ export function renderGranular({sampleRate,channels,markers,duration,pitch=0,gra
   const outputs = channels.map(() => new Float32Array(outLength));
   const norm = new Float32Array(outLength);
   const half = Math.floor(grainSize / 2);
+  const halfSeconds=half/sampleRate;
   const pitchFactor = Math.pow(2, pitch / 12);
   const denom = Math.max(1, grainSize - 1);
-  const totalGrains = Math.ceil((outLength + half) / hop);
   const radius = searchRadius ?? Math.max(24, Math.min(192, Math.round(sampleRate * 0.003)));
   const searchStep = Math.max(2, Math.round(radius / 24));
   const compareLen = Math.min(Math.floor(grainSize / 3), Math.max(128, hop));
   const compareStep = 4;
-  let grainIndex = 0;
+  const timingOnly=Math.abs(Number(pitch)||0)<=1e-6;
+  const dirtyRanges=dirtyRenderRanges(markers,duration,pitch);
+  const fadeSeconds=Math.max(.006,Math.min(.03,grainSize/sampleRate*.12));
+  const workRanges=timingOnly?expandRanges(dirtyRanges,fadeSeconds+halfSeconds,0,outDuration):[{start:0,end:outDuration}];
+  const possibleCenters=[];
+  for(let center=0;center<outLength+half;center+=hop){if(!timingOnly||timeInRanges(center/sampleRate,workRanges))possibleCenters.push(center)}
+  const totalPossibleGrains=Math.ceil((outLength+half)/hop),totalWorkGrains=possibleCenters.length;
+  let grainIndex=0;
 
   function chooseCenter(nominal, center) {
     if (grainIndex === 0 || center < hop) return nominal;
@@ -97,7 +114,8 @@ export function renderGranular({sampleRate,channels,markers,duration,pitch=0,gra
     return bestCenter;
   }
 
-  for (let center = 0; center < outLength + half; center += hop) {
+  if(!totalWorkGrains)onProgress?.(1);
+  for (const center of possibleCenters) {
     const nominal = targetToSource(markers, center / sampleRate) * sampleRate;
     const srcCenter = chooseCenter(nominal, center);
     for (let k = -half; k < half; k++) {
@@ -111,7 +129,7 @@ export function renderGranular({sampleRate,channels,markers,duration,pitch=0,gra
       for (let ch = 0; ch < channels.length; ch++) outputs[ch][oi] += linearSample(channels[ch], srcPos) * w;
     }
     grainIndex++;
-    if (onProgress && (grainIndex % 32 === 0 || grainIndex === totalGrains)) onProgress(Math.min(1, grainIndex / totalGrains));
+    if (onProgress && (grainIndex % 32 === 0 || grainIndex === totalWorkGrains)) onProgress(Math.min(1, grainIndex / Math.max(1,totalWorkGrains)));
   }
 
   for (let i = 0; i < outLength; i++) {
@@ -120,16 +138,17 @@ export function renderGranular({sampleRate,channels,markers,duration,pitch=0,gra
     for (let ch = 0; ch < outputs.length; ch++) outputs[ch][i] *= inv;
   }
 
-  // With timing-only edits, preserve untouched 1:1 sections from original PCM.
-  // Only genuinely stretched intervals use the granular result; short equal-power
-  // boundary blends prevent clicks while avoiding unnecessary processing artifacts.
-  if(Math.abs(Number(pitch)||0)<=1e-6){
-    const ranges=dirtyRenderRanges(markers,duration,0),fadeSeconds=Math.max(.006,Math.min(.03,grainSize/sampleRate*.12));
+  // Timing-only edits preserve exact/directly interpolated PCM outside warped intervals.
+  // Granular processing is computed only around dirty ranges, with a short equal-power
+  // boundary blend so untouched material avoids unnecessary time-stretch artifacts.
+  if(timingOnly){
     for(let i=0;i<outLength;i++){
-      const t=i/sampleRate,w=dirtyBlendWeight(t,ranges,fadeSeconds);if(w>=.999999)continue;
+      const t=i/sampleRate;let w=dirtyBlendWeight(t,dirtyRanges,fadeSeconds);
+      if(norm[i]<=1e-6)w=0;
+      if(w>=.999999)continue;
       const srcPos=targetToSource(markers,t)*sampleRate,directGain=Math.cos(w*Math.PI/2),processedGain=Math.sin(w*Math.PI/2);
       for(let ch=0;ch<outputs.length;ch++)outputs[ch][i]=linearSample(channels[ch],srcPos)*directGain+outputs[ch][i]*processedGain;
     }
   }
-  return {channels:outputs,sampleRate,duration:outDuration};
+  return {channels:outputs,sampleRate,duration:outDuration,dirtyRanges,processedGrains:grainIndex,totalGrains:totalPossibleGrains,workRatio:totalPossibleGrains?grainIndex/totalPossibleGrains:0};
 }
