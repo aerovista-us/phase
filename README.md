@@ -4,7 +4,7 @@
 
 Live alpha: **https://phase.aerovista.us/**
 
-## Current foundation — Phase 0.8
+## Current foundation — Phase 0.8.1
 
 Phase is now a functional local-first mashup workstation rather than only a CUTS-derived prototype shell.
 
@@ -26,11 +26,14 @@ Implemented today:
 - project save/load, local session restore and metadata Undo / Redo
 - nondestructive per-track IN / OUT trims
 - reusable arrangement REGION selection with snap/free drag and Region → Loop
+- region-driven per-track fade in / fade out
+- A → B crossfade across a selected REGION
+- fades honored by playback, audition and WAV export without requiring DSP render
 - responsive workstation containment and PWA update handling
 
 ## Architecture principle
 
-The original audio remains immutable. Phase stores edit intent as project data: beat grid, warp anchors, pitch, placement, alignment points, trims, regions and mix metadata. The interface projects those edits immediately. Expensive DSP is isolated behind explicit rendering so visual editing stays responsive.
+The original audio remains immutable. Phase stores edit intent as project data: beat grid, warp anchors, pitch, placement, alignment points, trims, regions, fades and mix metadata. The interface projects those edits immediately. Expensive DSP is isolated behind explicit rendering so visual editing stays responsive.
 
 ```text
 SOURCE AUDIO
@@ -48,14 +51,17 @@ Phase itself stays browser-local and PWA-friendly. GitHub Pages hosts the static
 
 ### 0.8 — Arrangement editing
 
-Current milestone.
+Current milestone, substantially complete.
 
 - IN / OUT trim
 - arrangement REGION selection
 - trim/region project persistence
 - trim-aware playback and export
 - region-driven audition loop
-- next: region fades and crossfades
+- region-driven fades
+- A → B crossfade
+- fade-aware playback and export
+- next: interaction refinement and edge-case cleanup around trims/fades/regions
 
 ### 0.9 — Render quality
 
