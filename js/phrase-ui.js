@@ -1,4 +1,4 @@
-import{state,$,$$}from'./state.js';
+import{state,$}from'./state.js';
 import{suggestPhraseBoundaries,nearestPhraseSuggestion}from'./phrase-model.js';
 
 state.showPhraseSuggestions=state.showPhraseSuggestions!==false;
@@ -13,11 +13,9 @@ const style=document.createElement('style');style.textContent=`
 `;
 document.head.appendChild(style);
 
-function suggestions(track){
-  const sig=`${track.analysis?.bpm}|${track.analysis?.meter}|${track.analysis?.beats?.length}|${track.analysis?.beats?.map?.(b=>Number(b.accent||0).toFixed(3)).join(',')}`;
-  const old=cache.get(track.id);if(old?.sig===sig)return old.items;
-  const items=suggestPhraseBoundaries(track).map(s=>{const m=track.markers?.[s.beatIndex];return{...s,projectTime:(track.timelineOffset||0)+(m?.targetTime??s.time)}});cache.set(track.id,{sig,items});return items;
-}
+function analysisSignature(track){const a=track.analysis,b=a?.beats||[],first=b[0],mid=b[Math.floor(b.length/2)],last=b.at(-1);return`${a?.bpm}|${a?.meter}|${a?.beatsPerBar}|${b.length}|${Number(first?.accent||0).toFixed(3)}|${Number(mid?.accent||0).toFixed(3)}|${Number(last?.accent||0).toFixed(3)}|${a?.tempoUserAdjusted?'u':''}`}
+function baseSuggestions(track){const sig=analysisSignature(track),old=cache.get(track.id);if(old?.sig===sig)return old.items;const items=suggestPhraseBoundaries(track);cache.set(track.id,{sig,items});return items}
+function suggestions(track){return baseSuggestions(track).map(s=>{const m=track.markers?.[s.beatIndex];return{...s,projectTime:(track.timelineOffset||0)+(m?.targetTime??s.time)}})}
 function chooseTrack(){if(Number.isInteger(state.selected?.track))return state.tracks[state.selected.track];const sel=$('#tempoTrack');return state.tracks[Number(sel?.value)||0]||state.tracks[0]}
 function selectSuggestion(track,item,{movePlayhead=true}={}){
   if(!track||!item)return;const marker=$(`.marker[data-track="${track.id}"][data-beat="${item.beatIndex}"]`);if(marker)marker.click();
@@ -34,6 +32,7 @@ function navigate(direction){const track=chooseTrack(),items=suggestions(track);
 function install(){
   if($('#phraseToggle'))return;const label=document.createElement('span');label.className='label section';label.textContent='STRUCTURE';const prev=document.createElement('button'),toggle=document.createElement('button'),next=document.createElement('button');prev.className=toggle.className=next.className='mode';prev.id='phrasePrev';toggle.id='phraseToggle';next.id='phraseNext';prev.textContent='◀ PHRASE';toggle.textContent='PHRASES ON';next.textContent='PHRASE ▶';prev.title='Select previous suggested phrase entrance on the active track';toggle.title='Show or hide advisory phrase entrance suggestions';next.title='Select next suggested phrase entrance on the active track';prev.onclick=()=>navigate(-1);next.onclick=()=>navigate(1);toggle.onclick=()=>{state.showPhraseSuggestions=!state.showPhraseSuggestions;paint();$('#engineState').textContent=`PHRASE SUGGESTIONS ${state.showPhraseSuggestions?'ON':'OFF'}`};const d=$('#tempoDouble');if(d)d.after(label,prev,toggle,next);else $('.modebar')?.append(label,prev,toggle,next);paint()
 }
-let last='';setInterval(()=>{install();const sig=JSON.stringify({v:state.viewDuration,o:state.tracks.map(t=>t.timelineOffset),m:state.tracks.map(t=>t.markers?.map(x=>x.targetTime).slice(0,8)),a:state.tracks.map(t=>[t.analysis?.beats?.length,t.analysis?.meter,t.analysis?.bpm])});if(sig!==last){last=sig;paint()}},300);
+function markerSignature(track){const ms=track.markers||[];let sum=0,weighted=0;for(let i=0;i<ms.length;i++){const v=Number(ms[i].targetTime)||0;sum+=v;weighted+=v*(i+1)}return`${ms.length}|${sum.toFixed(3)}|${weighted.toFixed(3)}`}
+let last='';setInterval(()=>{install();const sig=`${Number(state.viewDuration||0).toFixed(2)}|${state.tracks.map(t=>`${Number(t.timelineOffset||0).toFixed(3)}:${markerSignature(t)}:${analysisSignature(t)}`).join(';')}`;if(sig!==last){last=sig;paint()}},350);
 window.addEventListener('resize',()=>setTimeout(paint,0));window.addEventListener('phase:meter-change',()=>{cache.clear();setTimeout(paint,0)});window.addEventListener('phase:project-applied',()=>{cache.clear();setTimeout(paint,0)});window.addEventListener('phase:history-applied',()=>setTimeout(paint,0));
 install();paint();
