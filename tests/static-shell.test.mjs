@@ -45,6 +45,11 @@ test('Pages artifact copies all root runtime assets and emits build metadata',()
   assert.match(workflow,/cp -R icons js _site\//);assert.match(workflow,/_site\/build\.json/);assert.match(workflow,/GITHUB_SHA/);
 });
 
+test('Pages deployment is gated by syntax and full tests in the same workflow',()=>{
+  const workflow=read('.github/workflows/pages.yml'),syntax=workflow.indexOf('run: npm run check'),tests=workflow.indexOf('run: npm test'),build=workflow.indexOf('Build static Phase bundle'),deploy=workflow.indexOf('Deploy to GitHub Pages');
+  assert.ok(syntax>=0&&tests>=0&&build>=0&&deploy>=0);assert.ok(syntax<build);assert.ok(tests<build);assert.ok(build<deploy);
+});
+
 test('deployed build metadata stays network-first through the service worker',()=>{
   const sw=read('sw.js');assert.match(sw,/build\.json/);assert.match(sw,/networkFirst\(event\.request\)/);
 });
