@@ -11,13 +11,14 @@ function analysisSummary(a){
 export function snapshotProject(state){
   const rs=finiteOrNull(state.regionStart),re=finiteOrNull(state.regionEnd);
   return{
-    app:'EchoVerse Phase',version:8,savedAt:new Date().toISOString(),
+    app:'EchoVerse Phase',version:9,savedAt:new Date().toISOString(),
     bpm:num(state.bpm,120),viewDuration:num(state.viewDuration,60),pxPerSecond:num(state.pxPerSecond,8),snapMode:state.snapMode||'beat',
     playheadTime:num(state.playheadTime,0),loopBars:num(state.loopBars,8),loopEnabled:!!state.loopEnabled,
     regionStart:rs==null?null:Math.max(0,rs),regionEnd:re==null?null:Math.max(0,re),
     tracks:(state.tracks||[]).map(t=>({
       label:t.label,name:t.name,fileName:t.file?.name||t.fileName||null,sourceBpm:num(t.sourceBpm,120),pitch:num(t.pitch,0),timelineOffset:num(t.timelineOffset,0),
       trimIn:Math.max(0,num(t.trimIn,0)),trimOut:finiteOrNull(t.trimOut)==null?null:Math.max(0,finiteOrNull(t.trimOut)),
+      fadeInStart:finiteOrNull(t.fadeInStart),fadeInEnd:finiteOrNull(t.fadeInEnd),fadeOutStart:finiteOrNull(t.fadeOutStart),fadeOutEnd:finiteOrNull(t.fadeOutEnd),
       gridMode:t.gridMode||'manual',alignMarker:Number.isInteger(t.alignMarker)?t.alignMarker:null,gainDb:num(t.gainDb,0),mute:!!t.mute,solo:!!t.solo,
       analysis:analysisSummary(t.analysis),markers:cloneMarkers(t.markers)
     }))
@@ -38,6 +39,7 @@ export function applyTrackSnapshot(track,src,{applyMarkers=true}={}){
   track.timelineOffset=num(src.timelineOffset,track.timelineOffset||0);
   track.trimIn=Math.max(0,num(src.trimIn,track.trimIn||0));
   const out=finiteOrNull(src.trimOut);track.trimOut=out==null?null:Math.max(track.trimIn,out);
+  for(const key of['fadeInStart','fadeInEnd','fadeOutStart','fadeOutEnd'])track[key]=finiteOrNull(src[key]);
   track.gridMode=src.gridMode||track.gridMode||'manual';
   track.alignMarker=Number.isInteger(src.alignMarker)?src.alignMarker:track.alignMarker;
   track.gainDb=clamp(num(src.gainDb,track.gainDb||0),-24,6);
