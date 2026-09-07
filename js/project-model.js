@@ -35,7 +35,7 @@ export function validateProject(data){
 
 export function applyTrackSnapshot(track,src,{applyMarkers=true}={}){
   if(!track||!src)return track;
-  track.fileName=src.fileName||track.fileName||null;track.fileIdentity=normalizeIdentity(src.fileIdentity)||track.fileIdentity||null;
+  track.fileName=src.fileName||track.fileName||null;track.fileIdentity=fileIdentity(track.file)||normalizeIdentity(src.fileIdentity)||track.fileIdentity||null;
   track.name=src.name||track.name;
   track.sourceBpm=clamp(num(src.sourceBpm,track.sourceBpm||120),40,240);
   track.pitch=clamp(num(src.pitch,track.pitch||0),-24,24);
