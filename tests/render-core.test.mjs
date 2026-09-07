@@ -43,17 +43,28 @@ test('time stretch roughly preserves pitch', () => {
   assert.ok(hz>205&&hz<235,`expected ~220 Hz, got ${hz}`);
 });
 
-test('hybrid render preserves clean PCM after a warped interval',()=>{
+test('hybrid render preserves clean PCM and skips clean-region grain work',()=>{
   const sr=8000,input=sine(sr,1.2,173),markers=[{sourceTime:0,targetTime:0},{sourceTime:.5,targetTime:.75},{sourceTime:1,targetTime:1.25}];
   const result=renderGranular({sampleRate:sr,channels:[input],duration:1.2,markers,pitch:0,grainSize:512,hop:128});
   const outIndex=Math.round(1.0*sr),sourceIndex=Math.round(.75*sr);
   assert.ok(Math.abs(result.channels[0][outIndex]-input[sourceIndex])<1e-4,`clean section drifted: ${result.channels[0][outIndex]} vs ${input[sourceIndex]}`);
+  assert.ok(result.processedGrains<result.totalGrains,`expected sparse work, processed ${result.processedGrains}/${result.totalGrains}`);
+  assert.ok(result.workRatio<.9,`expected meaningful skipped work, ratio ${result.workRatio}`);
+});
+
+test('constant-offset timing map uses direct PCM without granular work',()=>{
+  const sr=8000,input=sine(sr,1,137),markers=[{sourceTime:0,targetTime:.2},{sourceTime:.5,targetTime:.7},{sourceTime:1,targetTime:1.2}];
+  const result=renderGranular({sampleRate:sr,channels:[input],duration:1,markers,pitch:0,grainSize:512,hop:128});
+  assert.equal(result.processedGrains,0);
+  const oi=Math.round(.6*sr),si=Math.round(.4*sr);
+  assert.ok(Math.abs(result.channels[0][oi]-input[si])<1e-4);
 });
 
 test('pitch shifts independently of duration', () => {
   const sr=8000,input=sine(sr,1,220);
   const result=renderGranular({sampleRate:sr,channels:[input],duration:1,markers:[{sourceTime:0,targetTime:0},{sourceTime:1,targetTime:1}],pitch:12,grainSize:512,hop:128});
   assert.ok(Math.abs(result.duration-1)<.001);
+  assert.equal(result.processedGrains,result.totalGrains);
   const hz=estimateHz(result.channels[0],sr,Math.floor(sr*.2),Math.floor(sr*.8));
   assert.ok(hz>400&&hz<480,`expected ~440 Hz, got ${hz}`);
 });
