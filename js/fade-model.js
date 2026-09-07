@@ -2,7 +2,7 @@ const finite=v=>v!=null&&Number.isFinite(Number(v))?Number(v):null;
 const clamp=(n,lo=0,hi=1)=>Math.max(lo,Math.min(hi,n));
 
 export function regionOnTrack(offset,duration,regionStart,regionEnd,minDuration=.02){
-  const start=Number(offset)||0,d=Math.max(0,Number(duration)||0,end=start+d,r0=Math.max(0,Number(regionStart)||0),r1=Math.max(r0,Number(regionEnd)||0),g0=Math.max(start,r0),g1=Math.min(end,r1);
+  const start=Number(offset)||0,d=Math.max(0,Number(duration)||0),end=start+d,r0=Math.max(0,Number(regionStart)||0),r1=Math.max(r0,Number(regionEnd)||0),g0=Math.max(start,r0),g1=Math.min(end,r1);
   if(g1-g0<minDuration)return null;
   return{start:g0-start,end:g1-start,duration:g1-g0,projectStart:g0,projectEnd:g1};
 }
