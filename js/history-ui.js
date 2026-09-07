@@ -30,10 +30,10 @@ function doRedo(){commit();if(!redo.length)return;const current=snapshotProject(
 
 function trackedTarget(el){
   if(!el||!el.closest)return false;
-  if(el.closest('#undoPhase,#redoPhase,#saveMap,#loadMap,#restoreSession,#play,#stop,#auditionAlign,#render,#exportWav,#exportLoop,#install,#analyze,#loopToggle,[data-load],[data-file]'))return false;
+  if(el.closest('#undoPhase,#redoPhase,#saveMap,#loadMap,#restoreSession,#play,#stop,#auditionAlign,#render,#exportWav,#exportLoop,#install,#analyze,#loopToggle,[data-load],[data-file],#stemSeparate,#stemEndpoint'))return false;
   if(el.closest('.marker,.lane'))return true;
   if(el.matches('input[id^="bpm-"],input[id^="pitch-"],input[id^="offset-"],input[id^="gain-"],#projectBpm,#phraseSnap,#meterMode,.stem-gain'))return true;
-  if(el.closest('[id^="alignSet-"],#alignB,#matchKey,#resetWarp,#setTrimIn,#setTrimOut,#clearTrim,#regionToLoop,#clearRegion,#fadeIn,#fadeOut,#crossfade,#clearFades,#tempoHalf,#tempoDouble,#suggestPair,#stemUse,.stem-mute'))return true;
+  if(el.closest('[id^="alignSet-"],#alignB,#matchKey,#resetWarp,#setTrimIn,#setTrimOut,#clearTrim,#regionToLoop,#clearRegion,#fadeIn,#fadeOut,#crossfade,#clearFades,#tempoHalf,#tempoDouble,#suggestPair,#stemUse,.stem-mute,.stem-solo'))return true;
   return false;
 }
 
