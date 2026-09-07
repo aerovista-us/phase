@@ -5,9 +5,9 @@ export function projectPlaybackWindow(trackStart,bufferDuration,from=0,to=Infini
   return{delay:overlapStart-p0,sourceOffset:clipIn+(overlapStart-clipStart),duration:overlapEnd-overlapStart,projectStart:overlapStart,projectEnd:overlapEnd};
 }
 
-export function phraseLoopAt(time,bpm,bars=8){
-  const beat=60/Math.max(1,Number(bpm)||120),span=beat*4*Math.max(1,Number(bars)||8),t=Math.max(0,Number(time)||0),start=Math.floor(t/span)*span;
-  return{start,end:start+span,duration:span,bars:Math.max(1,Number(bars)||8)};
+export function phraseLoopAt(time,bpm,bars=8,beatsPerBar=4){
+  const beat=60/Math.max(1,Number(bpm)||120),bpb=[3,4,6].includes(Number(beatsPerBar))?Number(beatsPerBar):4,span=beat*bpb*Math.max(1,Number(bars)||8),t=Math.max(0,Number(time)||0),start=Math.floor(t/span)*span;
+  return{start,end:start+span,duration:span,bars:Math.max(1,Number(bars)||8),beatsPerBar:bpb};
 }
 
 export function clampPlayhead(time,viewDuration){return Math.max(0,Math.min(Math.max(0,Number(viewDuration)||0),Number(time)||0))}
