@@ -1,5 +1,7 @@
 import{stemProjectMetadata,applyStemProjectMetadata}from'./stems.js';
 import{fileIdentity,normalizeIdentity}from'./source-identity.js';
+export const PROJECT_VERSION=12;
+export const MIN_PROJECT_VERSION=1;
 const clamp=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
 const num=(v,fallback=0)=>Number.isFinite(Number(v))?Number(v):fallback;
 const finiteOrNull=v=>v!=null&&Number.isFinite(Number(v))?Number(v):null;
@@ -14,7 +16,7 @@ function analysisSummary(a){
 export function snapshotProject(state){
   const rs=finiteOrNull(state.regionStart),re=finiteOrNull(state.regionEnd);
   return{
-    app:'EchoVerse Phase',version:12,savedAt:new Date().toISOString(),
+    app:'EchoVerse Phase',version:PROJECT_VERSION,savedAt:new Date().toISOString(),
     bpm:num(state.bpm,120),meterPreference:state.meterPreference||'auto',meter:state.meter||'4/4',beatsPerBar:meterBeats(state.beatsPerBar),viewDuration:num(state.viewDuration,60),pxPerSecond:num(state.pxPerSecond,8),snapMode:state.snapMode||'beat',
     playheadTime:num(state.playheadTime,0),loopBars:num(state.loopBars,8),loopEnabled:!!state.loopEnabled,
     regionStart:rs==null?null:Math.max(0,rs),regionEnd:re==null?null:Math.max(0,re),
@@ -28,8 +30,16 @@ export function snapshotProject(state){
   };
 }
 
+export function projectCompatibility(data){
+  if(!data||data.app!=='EchoVerse Phase'||!Array.isArray(data.tracks))return{valid:false,status:'invalid',version:null,current:PROJECT_VERSION};
+  const version=Number.isFinite(Number(data.version))?Math.max(MIN_PROJECT_VERSION,Math.floor(Number(data.version))):MIN_PROJECT_VERSION;
+  if(version>PROJECT_VERSION)return{valid:false,status:'future',version,current:PROJECT_VERSION};
+  return{valid:true,status:version===PROJECT_VERSION?'current':'legacy',version,current:PROJECT_VERSION};
+}
 export function validateProject(data){
-  if(!data||data.app!=='EchoVerse Phase'||!Array.isArray(data.tracks))throw new Error('Not an EchoVerse Phase project map');
+  const compatibility=projectCompatibility(data);
+  if(compatibility.status==='invalid')throw new Error('Not an EchoVerse Phase project map');
+  if(compatibility.status==='future')throw new Error(`This Phase project uses schema v${compatibility.version}; this build supports through v${PROJECT_VERSION}. Update Phase before opening it.`);
   return data;
 }
 
