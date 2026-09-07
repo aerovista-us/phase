@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { detectBeatGrid, detectKey } from '../js/analysis.js';
+import { detectBeatGrid, detectKey, detectMeter } from '../js/analysis.js';
 
 function synthBeatTrack({sr=8000,seconds=24,bpm=90,offset=.25}={}){
   const n=Math.floor(sr*seconds),ch=new Float32Array(n),beat=60/bpm;
@@ -8,13 +8,25 @@ function synthBeatTrack({sr=8000,seconds=24,bpm=90,offset=.25}={}){
   for(let b=0;;b++){const t=offset+b*beat;if(t>=seconds)break;const phase=b%4;if(phase===0)addTone(t,80,1,.14);else if(phase===2)addTone(t,95,.62,.1);else addTone(t,1100,.38,.05)}
   return{buffer:{numberOfChannels:1,sampleRate:sr,getChannelData:()=>ch},duration:seconds};
 }
+function accentBeats(meter,cycles=8){return Array.from({length:meter*cycles},(_,i)=>{const strong=i%meter===0;return{accent:strong?1:.08,lowAccent:strong?1:.06,highAccent:strong?.05:.12}})}
 
 test('detects a 90 BPM four-four pulse and kick-led downbeat',()=>{
   const result=detectBeatGrid(synthBeatTrack());
   assert.ok(result.bpm>86&&result.bpm<94,`BPM ${result.bpm}`);
   assert.ok(result.beats.length>25);
   assert.equal(result.downbeatPhase,0);
+  assert.equal(result.beatsPerBar,4);
+  assert.equal(result.meter,'4/4');
   assert.ok(Math.abs(result.beats[0].time-.25)<.12,`first beat ${result.beats[0].time}`);
+});
+
+test('meter scorer separates three-beat and six-beat accent cycles',()=>{
+  const three=detectMeter(accentBeats(3));assert.equal(three.meter,3);assert.equal(three.name,'3/4');assert.equal(three.phase,0);
+  const six=detectMeter(accentBeats(6));assert.equal(six.meter,6);assert.equal(six.name,'6/8');assert.equal(six.phase,0);
+});
+
+test('meter can be forced without rerunning tempo analysis',()=>{
+  const forced=detectMeter(accentBeats(4),'3/4');assert.equal(forced.meter,3);assert.equal(forced.name,'3/4');assert.equal(forced.forced,true);
 });
 
 test('detects a sustained C major triad',()=>{
