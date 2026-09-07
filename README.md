@@ -4,9 +4,9 @@
 
 Live alpha: **https://phase.aerovista.us/**
 
-## Current foundation — Phase 0.12.5
+## Current foundation — Phase 0.12.6
 
-Phase is now a functional local-first mashup workstation with recovery, diagnostics, staged startup and increasingly production-oriented project handling.
+Phase is now a functional local-first mashup workstation with recovery, diagnostics, staged startup, lightweight project packaging and an original first-run demo.
 
 Implemented today:
 
@@ -33,6 +33,7 @@ Implemented today:
 - sparse dirty-region granular DSP, quality modes, cancellation, work stats and render reuse
 - project save/load, local session restore, metadata Undo / Redo and one-pass source relinking
 - source/stem identity using filename plus lightweight size/type/modified metadata
+- **SAVE PACKAGE** project files with explicit source/stem asset manifests while keeping audio bytes external
 - canonical Vocals / Drums / Bass / Other stem slots per track
 - manual stem loading plus optional HTTP/NXCore separation-provider contract
 - stem-aware playback, rendering, loops, export, per-stem LEVEL / MUTE / SOLO and project persistence
@@ -41,10 +42,11 @@ Implemented today:
 - non-destructive app-cache reset and render-cache recovery controls
 - contextual Quick Start help and complete keyboard map
 - keyboard-focusable musical markers, live status announcements, semantic controls, reduced-motion and high-contrast handling
-- staged startup: core editor first, secondary STEMS/DIAG/HELP UI after first paint/idle
+- staged startup: core editor first, secondary DEMO/STEMS/DIAG/HELP UI after first paint/idle
 - local boot timing telemetry in DIAG
 - deployed `build.json` identity containing version, commit and build time, with stale-app detection
 - static-shell CI checks that verify Pages artifact coverage, PWA assets, version consistency and runtime-guard ordering
+- original procedural two-track **DEMO** generated locally and loaded through Phase's real file/decode path
 - responsive workstation containment and network-first alpha PWA update handling
 
 ## Architecture principle
@@ -106,31 +108,32 @@ Phase itself stays browser-local and PWA-friendly. GitHub Pages hosts only the s
 - documented provider contract for local/NXCore implementation
 - remaining external dependency: choose/provision the actual separation service endpoint
 
-### 0.12 — Productization — active milestone
+### 0.12 — Productization — substantially complete alpha milestone
 
-Completed so far:
+Completed:
 
 - diagnostics and recovery tooling
 - standalone recovery route
 - launch/runtime error history
 - PWA/cache recovery without intentionally deleting the saved project map
 - one-pass source/stem relinking with lightweight identity checks
+- SAVE PACKAGE asset-manifest workflow
 - keyboard map and contextual help
 - accessibility/focus pass
 - decoded-audio memory diagnostics and device-aware caution thresholds
 - staged optional UI loading and boot timing telemetry
 - deployed build identity/stale-app detection
 - Pages/static-shell integrity tests
+- original procedural first-run DEMO
 
-Next:
+Remaining before 1.0:
 
 - performance profiling using real DIAG timing/memory evidence
-- stronger project package workflow beyond JSON + relink
-- startup/demo project
-- original EchoVerse Phase signature sound
+- deeper real-browser interaction QA
+- original EchoVerse Phase startup/signature sound
 - actual local/NXCore separation service provisioning
-- release-readiness QA toward 1.0
+- final release-readiness QA and issue cleanup
 
 ## Startup signature
 
-A short original EchoVerse Phase startup/demo sound is planned as the default demo asset, inspired by the memorable feel of classic audio-software demo clips while remaining entirely original to Phase.
+A short original EchoVerse Phase startup/signature sound is still planned. The current DEMO audio is entirely original and procedural, but it is a learning session rather than the final branded signature clip.
