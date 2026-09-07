@@ -1,7 +1,7 @@
-const CACHE='echoverse-phase-shell-v22';
+const CACHE='echoverse-phase-shell-v23';
 const BASE=self.registration.scope;
 const asset=path=>new URL(path,BASE).href;
-const CORE=['./','./styles.css','./ui-polish.css','./manifest.webmanifest','./icons/phase.svg','./js/state.js','./js/audio.js','./js/analysis.js','./js/warp.js','./js/arrangement.js','./js/region-model.js','./js/fade-model.js','./js/tempo-model.js','./js/phrase-model.js','./js/render-quality.js','./js/render-core.js','./js/render-worker.js','./js/render.js','./js/export.js','./js/app.js','./js/arrange-ui.js','./js/mix-ui.js','./js/project-model.js','./js/project-ui.js','./js/history-ui.js','./js/visual-guides.js','./js/transport-model.js','./js/transport-ui.js','./js/export-loop-ui.js','./js/trim-ui.js','./js/region-ui.js','./js/fade-ui.js','./js/render-quality-ui.js','./js/meter-ui.js','./js/tempo-ui.js','./js/phrase-ui.js'].map(asset);
+const CORE=['./','./styles.css','./ui-polish.css','./manifest.webmanifest','./icons/phase.svg','./js/state.js','./js/audio.js','./js/analysis.js','./js/warp.js','./js/arrangement.js','./js/region-model.js','./js/fade-model.js','./js/tempo-model.js','./js/phrase-model.js','./js/compatibility.js','./js/render-quality.js','./js/render-core.js','./js/render-worker.js','./js/render.js','./js/export.js','./js/app.js','./js/arrange-ui.js','./js/mix-ui.js','./js/project-model.js','./js/project-ui.js','./js/history-ui.js','./js/visual-guides.js','./js/transport-model.js','./js/transport-ui.js','./js/export-loop-ui.js','./js/trim-ui.js','./js/region-ui.js','./js/fade-ui.js','./js/render-quality-ui.js','./js/meter-ui.js','./js/tempo-ui.js','./js/phrase-ui.js','./js/compatibility-ui.js'].map(asset);
 
 self.addEventListener('install',event=>event.waitUntil(
   caches.open(CACHE).then(cache=>cache.addAll(CORE)).then(()=>self.skipWaiting())
