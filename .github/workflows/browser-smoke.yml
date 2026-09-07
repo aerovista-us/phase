@@ -1,0 +1,66 @@
+name: Phase browser smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'recovery.html'
+      - 'styles.css'
+      - 'ui-polish.css'
+      - 'sw.js'
+      - 'js/**'
+      - 'tests/e2e/**'
+      - 'playwright.config.mjs'
+      - '.github/workflows/browser-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  chromium-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Playwright test runner
+        run: npm install --no-save @playwright/test@1.55.0
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Prepare local validated build metadata
+        run: |
+          VERSION=$(grep -oE 'ALPHA [0-9]+\.[0-9]+\.[0-9]+' index.html | head -1 | awk '{print $2}')
+          printf '{"version":"%s","commit":"%s","builtAt":"%s","validated":true,"channel":"smoke","workflowRun":"%s"}\n' "$VERSION" "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$GITHUB_RUN_ID" > build.json
+
+      - name: Start static server
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/phase-http.log 2>&1 &
+          echo $! > /tmp/phase-http.pid
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/phase-http.log
+          exit 1
+
+      - name: Run Chromium smoke suite
+        run: npx playwright test --config=playwright.config.mjs --reporter=line
+
+      - name: Upload browser evidence on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-browser-smoke-${{ github.run_id }}
+          path: |
+            test-results
+            /tmp/phase-http.log
+          if-no-files-found: ignore
