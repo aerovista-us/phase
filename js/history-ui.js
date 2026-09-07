@@ -6,6 +6,7 @@ let before=null,beforeFp='';
 
 function syncInputs(){
   const bpm=$('#projectBpm');if(bpm)bpm.value=Number(state.bpm||120).toFixed(2);
+  const meter=$('#meterMode');if(meter)meter.value=state.meterPreference||'auto';
   const snap=$('#phraseSnap');if(snap)snap.value=state.snapMode||'beat';
   const loopBars=$('#loopBars');if(loopBars)loopBars.value=String(state.loopBars||8);
   for(const t of state.tracks){
@@ -17,6 +18,7 @@ function syncInputs(){
   }
   window.dispatchEvent(new Event('resize'));
   window.dispatchEvent(new CustomEvent('phase:history-applied'));
+  window.dispatchEvent(new CustomEvent('phase:meter-change'));
 }
 
 function updateButtons(){
@@ -51,7 +53,7 @@ function trackedTarget(el){
   if(!el||!el.closest)return false;
   if(el.closest('#undoPhase,#redoPhase,#saveMap,#loadMap,#restoreSession,#play,#stop,#auditionAlign,#render,#exportWav,#exportLoop,#install,#analyze,#loopToggle'))return false;
   if(el.closest('.marker,.lane'))return true;
-  if(el.matches('input[id^="bpm-"],input[id^="pitch-"],input[id^="offset-"],input[id^="gain-"],#projectBpm,#phraseSnap'))return true;
+  if(el.matches('input[id^="bpm-"],input[id^="pitch-"],input[id^="offset-"],input[id^="gain-"],#projectBpm,#phraseSnap,#meterMode'))return true;
   if(el.closest('[id^="alignSet-"],#alignB,#matchKey,#resetWarp,#setTrimIn,#setTrimOut,#clearTrim,#regionToLoop,#clearRegion,#fadeIn,#fadeOut,#crossfade,#clearFades'))return true;
   return false;
 }
