@@ -41,7 +41,7 @@ function envelope(buffer, targetRate = 200) {
 function tempo(onset, rate) {
   const lo = 65, hi = 190, maxN = Math.min(onset.length, Math.floor(rate * 180));
   const scores = [];
-  let best = { bpm: 120, score: -1 };
+  let raw = { bpm: 120, score: -1 };
   for (let bpm = lo; bpm <= hi; bpm += 0.25) {
     const lag = Math.round(rate * 60 / bpm);
     let s = 0, n = 0;
@@ -49,9 +49,10 @@ function tempo(onset, rate) {
     s /= Math.max(1, n);
     const item = { bpm, score: s };
     scores.push(item);
-    if (s > best.score) best = item;
+    if (s > raw.score) raw = item;
   }
   const nearest = bpm => scores.reduce((a, b) => Math.abs(b.bpm - bpm) < Math.abs(a.bpm - bpm) ? b : a);
+  let best=raw;
   if (best.bpm > 150) {
     const half = nearest(best.bpm / 2);
     if (half.score >= best.score * 0.72) best = half;
@@ -61,7 +62,29 @@ function tempo(onset, rate) {
   }
   const sorted = [...scores].sort((a, b) => b.score - a.score);
   const second = sorted.find(x => Math.abs(x.bpm - best.bpm) > 3)?.score || 0;
-  return { bpm: best.bpm, confidence: Math.max(0, Math.min(1, (best.score - second) / (best.score + 1e-9) * 2.5)) };
+  const alternateBpms=[best.bpm/2,best.bpm,best.bpm*2].filter(b=>b>=lo&&b<=hi).map(nearest);
+  const unique=[];for(const a of alternateBpms)if(!unique.some(x=>Math.abs(x.bpm-a.bpm)<.5))unique.push({bpm:a.bpm,score:a.score});
+  unique.sort((a,b)=>b.score-a.score);
+  return { bpm: best.bpm, rawBpm:raw.bpm, octaveAdjusted:Math.abs(best.bpm-raw.bpm)>.5,alternates:unique.slice(0,3),confidence: Math.max(0, Math.min(1, (best.score - second) / (best.score + 1e-9) * 2.5)) };
+}
+
+function beatWeight(b){return (b?.accent||0)*.45+(b?.lowAccent||0)*1.35-(b?.highAccent||0)*.08}
+export function scoreMeter(beats,meter){
+  const m=Math.max(2,Math.round(Number(meter)||4)),buckets=Array.from({length:m},()=>[]);
+  for(let i=0;i<(beats?.length||0);i++)buckets[i%m].push(beatWeight(beats[i]));
+  const means=buckets.map(xs=>xs.reduce((a,b)=>a+b,0)/Math.max(1,xs.length));
+  let phase=0;for(let i=1;i<m;i++)if(means[i]>means[phase])phase=i;
+  const best=means[phase]||0,others=means.filter((_,i)=>i!==phase),other=others.reduce((a,b)=>a+b,0)/Math.max(1,others.length),vals=buckets[phase];
+  const variance=vals.reduce((s,x)=>s+(x-best)*(x-best),0)/Math.max(1,vals.length),cv=Math.sqrt(variance)/(Math.abs(best)+1e-9),regularity=1/(1+cv),contrast=(best-other)/(Math.abs(best)+Math.abs(other)+1e-9),coverage=Math.min(1,vals.length/4),score=Math.max(0,contrast)*(.62+.38*regularity)*coverage;
+  return{meter:m,phase,score,phaseConfidence:Math.max(0,Math.min(1,contrast*2.5)),regularity,means};
+}
+
+export function detectMeter(beats,preference='auto'){
+  const forced={'3/4':3,'4/4':4,'6/8':6,'3':3,'4':4,'6':6}[String(preference)];
+  if(forced){const r=scoreMeter(beats,forced);return{...r,name:forced===3?'3/4':forced===6?'6/8':'4/4',confidence:r.phaseConfidence,forced:true}}
+  const priors={3:.98,4:1,6:.94},candidates=[3,4,6].map(m=>{const r=scoreMeter(beats,m);return{...r,adjusted:r.score*priors[m]}}).sort((a,b)=>b.adjusted-a.adjusted),best=candidates[0],second=candidates[1]||{adjusted:0};
+  const confidence=Math.max(0,Math.min(1,(best.adjusted-second.adjusted)/(Math.abs(best.adjusted)+1e-9)*2.5));
+  return{...best,name:best.meter===3?'3/4':best.meter===6?'6/8':'4/4',confidence,forced:false,candidates:candidates.map(c=>({meter:c.meter,score:c.score,phase:c.phase}))};
 }
 
 const NOTE_NAMES=['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
@@ -100,13 +123,6 @@ export function detectBeatGrid(track) {
     for (let j = Math.max(0, center - radius); j <= Math.min(f.onset.length - 1, center + radius); j++) if (f.onset[j] > bv) { bv = f.onset[j]; bi = j; }
     beats.push({time:bi/f.rate,accent:(f.onset[bi]||0)*.75+(f.env[bi]||0)*.25,lowAccent:(f.lowOnset[bi]||0)*.8+(f.lowEnv[bi]||0)*.2,highAccent:(f.highOnset[bi]||0)*.8+(f.highEnv[bi]||0)*.2});
   }
-  let downPhase = 0, downBest = -Infinity, downSecond = -Infinity;
-  for (let p = 0; p < 4; p++) {
-    let s = 0, n = 0;
-    for (let i = p; i < beats.length; i += 4) { const b=beats[i]; s += b.accent*.45+b.lowAccent*1.35-b.highAccent*.08; n++; }
-    s /= Math.max(1, n);
-    if (s > downBest) { downSecond = downBest; downBest = s; downPhase = p; }
-    else if (s > downSecond) downSecond = s;
-  }
-  return {bpm:tp.bpm,tempoConfidence:tp.confidence,key:key.name,keyRoot:key.root,keyMode:key.mode,keyConfidence:key.confidence,downbeatPhase:downPhase,downbeatConfidence:Math.max(0,Math.min(1,(downBest-downSecond)/(Math.abs(downBest)+1e-9)*3)),beats};
+  const meter=detectMeter(beats,track.meterPreference||'auto');
+  return {bpm:tp.bpm,rawBpm:tp.rawBpm,tempoOctaveAdjusted:tp.octaveAdjusted,tempoAlternates:tp.alternates,tempoConfidence:tp.confidence,key:key.name,keyRoot:key.root,keyMode:key.mode,keyConfidence:key.confidence,meter:meter.name,beatsPerBar:meter.meter,meterConfidence:meter.confidence,downbeatPhase:meter.phase,downbeatConfidence:meter.phaseConfidence,beats};
 }
