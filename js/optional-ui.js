@@ -1,5 +1,5 @@
 let loadPromise=null;
-const OPTIONAL=['./demo-ui.js','./stems-ui.js','./diagnostics-ui.js','./help-ui.js'];
+const OPTIONAL=['./demo-ui.js','./stems-ui.js','./diagnostics-ui.js','./support-ui.js','./help-ui.js'];
 const timing=window.__phaseBootTiming=window.__phaseBootTiming||{};
 
 export function loadOptionalUi(){
