@@ -1,16 +1,17 @@
 export const SNAP_MODES={beat:.25,bar:1,'8bar':8,'16bar':16,'32bar':32};
 
 export function firstDownbeatIndex(track){const i=track?.markers?.findIndex(m=>m.downbeat);return i>=0?i:0}
+export function meterBeats(value=4){const n=Number(value);return[3,4,6].includes(n)?n:4}
 
-export function snapStepSeconds(bpm,mode='beat'){
-  const beat=60/Math.max(1,+bpm||120);
+export function snapStepSeconds(bpm,mode='beat',beatsPerBar=4){
+  const beat=60/Math.max(1,+bpm||120),bpb=meterBeats(beatsPerBar);
   if(mode==='beat')return beat;
-  return beat*4*(SNAP_MODES[mode]||1);
+  return beat*bpb*(SNAP_MODES[mode]||1);
 }
 
-export function snapTrackOffset(offset,anchorLocalTime,bpm,mode='beat'){
+export function snapTrackOffset(offset,anchorLocalTime,bpm,mode='beat',beatsPerBar=4){
   if(mode==='off')return offset;
-  const step=snapStepSeconds(bpm,mode),globalAnchor=offset+(anchorLocalTime||0);
+  const step=snapStepSeconds(bpm,mode,beatsPerBar),globalAnchor=offset+(anchorLocalTime||0);
   return Math.round(globalAnchor/step)*step-(anchorLocalTime||0);
 }
 
