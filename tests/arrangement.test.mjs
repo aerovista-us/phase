@@ -12,10 +12,18 @@ test('phrase snap uses beat, bar and phrase lengths',()=>{
   assert.equal(snapStepSeconds(120,'32bar'),64);
 });
 
+test('bar and phrase snap follow the project meter',()=>{
+  assert.equal(snapStepSeconds(120,'bar',3),1.5);
+  assert.equal(snapStepSeconds(120,'8bar',3),12);
+  assert.equal(snapStepSeconds(120,'bar',6),3);
+  assert.equal(snapStepSeconds(120,'8bar',6),24);
+});
+
 test('track offset snaps chosen local anchor to project phrase boundary',()=>{
   const anchor=2;
   assert.equal(snapTrackOffset(14.2,anchor,120,'8bar'),14);
   assert.equal(snapTrackOffset(29.2,anchor,120,'16bar'),30);
+  assert.equal(snapTrackOffset(10.4,1.5,120,'8bar',3),10.5);
 });
 
 test('explicit marker alignment maps selected B marker to selected A marker',()=>{
