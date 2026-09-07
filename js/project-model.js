@@ -9,10 +9,12 @@ function analysisSummary(a){
 }
 
 export function snapshotProject(state){
+  const rs=finiteOrNull(state.regionStart),re=finiteOrNull(state.regionEnd);
   return{
-    app:'EchoVerse Phase',version:7,savedAt:new Date().toISOString(),
+    app:'EchoVerse Phase',version:8,savedAt:new Date().toISOString(),
     bpm:num(state.bpm,120),viewDuration:num(state.viewDuration,60),pxPerSecond:num(state.pxPerSecond,8),snapMode:state.snapMode||'beat',
     playheadTime:num(state.playheadTime,0),loopBars:num(state.loopBars,8),loopEnabled:!!state.loopEnabled,
+    regionStart:rs==null?null:Math.max(0,rs),regionEnd:re==null?null:Math.max(0,re),
     tracks:(state.tracks||[]).map(t=>({
       label:t.label,name:t.name,fileName:t.file?.name||t.fileName||null,sourceBpm:num(t.sourceBpm,120),pitch:num(t.pitch,0),timelineOffset:num(t.timelineOffset,0),
       trimIn:Math.max(0,num(t.trimIn,0)),trimOut:finiteOrNull(t.trimOut)==null?null:Math.max(0,finiteOrNull(t.trimOut)),
@@ -54,6 +56,7 @@ export function applyProjectSnapshot(state,data,{loadedOnly=true}={}){
   state.playheadTime=Math.max(0,num(data.playheadTime,state.playheadTime||0));
   state.loopBars=[4,8,16,32].includes(num(data.loopBars,state.loopBars||8))?num(data.loopBars,state.loopBars||8):8;
   state.loopEnabled=!!data.loopEnabled;
+  const rs=finiteOrNull(data.regionStart),re=finiteOrNull(data.regionEnd);state.regionStart=rs==null?null:Math.max(0,rs);state.regionEnd=re==null?null:Math.max(0,re);
   data.tracks.forEach((src,i)=>{
     const t=state.tracks?.[i];if(!t)return;
     applyTrackSnapshot(t,src,{applyMarkers:!loadedOnly||!!t.buffer});
