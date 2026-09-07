@@ -1,4 +1,5 @@
 import{stemProjectMetadata,applyStemProjectMetadata}from'./stems.js';
+import{fileIdentity,normalizeIdentity}from'./source-identity.js';
 const clamp=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
 const num=(v,fallback=0)=>Number.isFinite(Number(v))?Number(v):fallback;
 const finiteOrNull=v=>v!=null&&Number.isFinite(Number(v))?Number(v):null;
@@ -13,12 +14,12 @@ function analysisSummary(a){
 export function snapshotProject(state){
   const rs=finiteOrNull(state.regionStart),re=finiteOrNull(state.regionEnd);
   return{
-    app:'EchoVerse Phase',version:11,savedAt:new Date().toISOString(),
+    app:'EchoVerse Phase',version:12,savedAt:new Date().toISOString(),
     bpm:num(state.bpm,120),meterPreference:state.meterPreference||'auto',meter:state.meter||'4/4',beatsPerBar:meterBeats(state.beatsPerBar),viewDuration:num(state.viewDuration,60),pxPerSecond:num(state.pxPerSecond,8),snapMode:state.snapMode||'beat',
     playheadTime:num(state.playheadTime,0),loopBars:num(state.loopBars,8),loopEnabled:!!state.loopEnabled,
     regionStart:rs==null?null:Math.max(0,rs),regionEnd:re==null?null:Math.max(0,re),
     tracks:(state.tracks||[]).map(t=>({
-      label:t.label,name:t.name,fileName:t.file?.name||t.fileName||null,sourceBpm:num(t.sourceBpm,120),pitch:num(t.pitch,0),timelineOffset:num(t.timelineOffset,0),meterPreference:t.meterPreference||state.meterPreference||'auto',meter:t.meter||t.analysis?.meter||'4/4',beatsPerBar:meterBeats(t.beatsPerBar??t.analysis?.beatsPerBar),
+      label:t.label,name:t.name,fileName:t.file?.name||t.fileName||null,fileIdentity:fileIdentity(t.file)||normalizeIdentity(t.fileIdentity),sourceBpm:num(t.sourceBpm,120),pitch:num(t.pitch,0),timelineOffset:num(t.timelineOffset,0),meterPreference:t.meterPreference||state.meterPreference||'auto',meter:t.meter||t.analysis?.meter||'4/4',beatsPerBar:meterBeats(t.beatsPerBar??t.analysis?.beatsPerBar),
       trimIn:Math.max(0,num(t.trimIn,0)),trimOut:finiteOrNull(t.trimOut)==null?null:Math.max(0,finiteOrNull(t.trimOut)),
       fadeInStart:finiteOrNull(t.fadeInStart),fadeInEnd:finiteOrNull(t.fadeInEnd),fadeOutStart:finiteOrNull(t.fadeOutStart),fadeOutEnd:finiteOrNull(t.fadeOutEnd),
       gridMode:t.gridMode||'manual',alignMarker:Number.isInteger(t.alignMarker)?t.alignMarker:null,gainDb:num(t.gainDb,0),mute:!!t.mute,solo:!!t.solo,
@@ -34,7 +35,7 @@ export function validateProject(data){
 
 export function applyTrackSnapshot(track,src,{applyMarkers=true}={}){
   if(!track||!src)return track;
-  track.fileName=src.fileName||track.fileName||null;
+  track.fileName=src.fileName||track.fileName||null;track.fileIdentity=normalizeIdentity(src.fileIdentity)||track.fileIdentity||null;
   track.name=src.name||track.name;
   track.sourceBpm=clamp(num(src.sourceBpm,track.sourceBpm||120),40,240);
   track.pitch=clamp(num(src.pitch,track.pitch||0),-24,24);
@@ -62,16 +63,13 @@ export function applyProjectSnapshot(state,data,{loadedOnly=true}={}){
   state.loopBars=[4,8,16,32].includes(num(data.loopBars,state.loopBars||8))?num(data.loopBars,state.loopBars||8):8;
   state.loopEnabled=!!data.loopEnabled;
   const rs=finiteOrNull(data.regionStart),re=finiteOrNull(data.regionEnd);state.regionStart=rs==null?null:Math.max(0,rs);state.regionEnd=re==null?null:Math.max(0,re);
-  data.tracks.forEach((src,i)=>{
-    const t=state.tracks?.[i];if(!t)return;
-    applyTrackSnapshot(t,src,{applyMarkers:!loadedOnly||!!t.buffer});
-  });
+  data.tracks.forEach((src,i)=>{const t=state.tracks?.[i];if(!t)return;applyTrackSnapshot(t,src,{applyMarkers:!loadedOnly||!!t.buffer})});
   return state;
 }
 
 export function editableFingerprint(state){
   const s=snapshotProject(state);delete s.savedAt;
-  s.tracks.forEach(t=>{delete t.name;delete t.fileName;delete t.analysis;if(t.stems)for(const stem of Object.values(t.stems))delete stem.fileName});
+  s.tracks.forEach(t=>{delete t.name;delete t.fileName;delete t.fileIdentity;delete t.analysis;if(t.stems)for(const stem of Object.values(t.stems)){delete stem.fileName;delete stem.identity}});
   return JSON.stringify(s);
 }
 
