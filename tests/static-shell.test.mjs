@@ -54,6 +54,10 @@ test('deployed build metadata stays network-first through the service worker',()
   const sw=read('sw.js');assert.match(sw,/build\.json/);assert.match(sw,/networkFirst\(event\.request\)/);
 });
 
+test('offline fallback ignores cache-bust query strings',()=>{
+  const sw=read('sw.js');assert.match(sw,/caches\.match\(request,\{ignoreSearch:true\}\)/);assert.match(read('index.html'),/[?&]v=\d+/);
+});
+
 test('visible Phase version and cache-bust generation stay consistent',()=>{
   const html=read('index.html'),tag=html.match(/ALPHA\s+([0-9.]+)/)?.[1],footer=html.match(/PHASE\s+([0-9.]+)<\/span>/)?.[1];
   assert.ok(tag);assert.equal(footer,tag);
