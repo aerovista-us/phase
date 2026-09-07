@@ -1,7 +1,7 @@
 import test from'node:test';
 import assert from'node:assert/strict';
-import{readFileSync,existsSync}from'node:fs';
-import{resolve}from'node:path';
+import{readFileSync,existsSync,readdirSync}from'node:fs';
+import{resolve,dirname,relative}from'node:path';
 
 const root=resolve('.');
 const read=p=>readFileSync(resolve(root,p),'utf8');
@@ -26,6 +26,17 @@ test('every local index asset exists in the repository',()=>{
 test('every service-worker shell asset exists',()=>{
   const assets=serviceWorkerAssets(read('sw.js'));assert.ok(assets.includes('recovery.html'));assert.ok(assets.includes('ui-polish.css'));assert.ok(assets.includes('js/runtime-guard.js'));assert.ok(assets.includes('js/optional-ui.js'));
   for(const asset of assets){if(asset==='')continue;assert.ok(existsSync(resolve(root,asset)),`missing service-worker asset: ${asset}`)}
+});
+
+test('every Phase JavaScript module is available offline',()=>{
+  const cached=new Set(serviceWorkerAssets(read('sw.js'))),files=readdirSync(resolve(root,'js')).filter(name=>name.endsWith('.js'));
+  assert.ok(files.length>20);
+  for(const name of files)assert.ok(cached.has(`js/${name}`),`js/${name} is not included in the service-worker shell`);
+});
+
+test('all literal relative JavaScript imports resolve to repository files',()=>{
+  const files=readdirSync(resolve(root,'js')).filter(name=>name.endsWith('.js'));
+  for(const name of files){const path=resolve(root,'js',name),source=readFileSync(path,'utf8'),specs=[];for(const m of source.matchAll(/(?:from\s*|import\s*\()\s*['"](\.[^'"]+)['"]/g))specs.push(m[1]);for(const spec of specs){const target=resolve(dirname(path),spec);assert.ok(existsSync(target),`${relative(root,path)} imports missing ${spec}`)}}
 });
 
 test('Pages artifact copies all root runtime assets and emits build metadata',()=>{
