@@ -1,0 +1,6 @@
+import test from'node:test';import assert from'node:assert/strict';
+import{renderDemoTrack,encodeWav}from'../js/demo-audio.js';
+
+test('demo track renders deterministic stereo audio at requested tempo length',()=>{const a=renderDemoTrack({bpm:100,bars:2,sampleRate:8000,variant:0}),b=renderDemoTrack({bpm:100,bars:2,sampleRate:8000,variant:0});assert.equal(a.channels.length,2);assert.equal(a.length,Math.ceil((2*4*60/100)*8000));assert.equal(a.channels[0][1234],b.channels[0][1234]);assert.ok(Math.abs(a.channels[0][1234])<=1)});
+test('demo variants produce different audio',()=>{const a=renderDemoTrack({bars:1,sampleRate:8000,variant:0}),b=renderDemoTrack({bars:1,sampleRate:8000,variant:1});assert.notEqual(a.channels[0][3000],b.channels[0][3000])});
+test('demo WAV encoder emits valid stereo PCM header and payload',()=>{const rendered=renderDemoTrack({bars:1,sampleRate:8000}),wav=encodeWav(rendered),view=new DataView(wav),text=(o,n)=>String.fromCharCode(...new Uint8Array(wav,o,n));assert.equal(text(0,4),'RIFF');assert.equal(text(8,4),'WAVE');assert.equal(view.getUint16(22,true),2);assert.equal(view.getUint32(24,true),8000);assert.equal(view.getUint16(34,true),16);assert.equal(wav.byteLength,44+rendered.length*2*2)});
