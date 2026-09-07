@@ -24,7 +24,7 @@ test('every local index asset exists in the repository',()=>{
 });
 
 test('every service-worker shell asset exists',()=>{
-  const assets=serviceWorkerAssets(read('sw.js'));assert.ok(assets.includes('recovery.html'));assert.ok(assets.includes('ui-polish.css'));assert.ok(assets.includes('js/runtime-guard.js'));assert.ok(assets.includes('js/session-safety.js'));assert.ok(assets.includes('js/optional-ui.js'));
+  const assets=serviceWorkerAssets(read('sw.js'));assert.ok(assets.includes('recovery.html'));assert.ok(assets.includes('ui-polish.css'));assert.ok(assets.includes('js/runtime-guard.js'));assert.ok(assets.includes('js/session-safety.js'));assert.ok(assets.includes('js/resource-preflight.js'));assert.ok(assets.includes('js/resource-preflight-ui.js'));assert.ok(assets.includes('js/optional-ui.js'));
   for(const asset of assets){if(asset==='')continue;assert.ok(existsSync(resolve(root,asset)),`missing service-worker asset: ${asset}`)}
 });
 
@@ -39,10 +39,10 @@ test('all literal relative JavaScript imports resolve to repository files',()=>{
   for(const name of files){const path=resolve(root,'js',name),source=readFileSync(path,'utf8'),specs=[];for(const m of source.matchAll(/(?:from\s*|import\s*\()\s*['"](\.[^'"]+)['"]/g))specs.push(m[1]);for(const spec of specs){const target=resolve(dirname(path),spec);assert.ok(existsSync(target),`${relative(root,path)} imports missing ${spec}`)}}
 });
 
-test('Pages artifact copies all root runtime assets and emits build metadata',()=>{
+test('Pages artifact copies all root runtime assets and emits validated build metadata',()=>{
   const workflow=read('.github/workflows/pages.yml');
   for(const asset of['index.html','recovery.html','styles.css','ui-polish.css','manifest.webmanifest','sw.js'])assert.match(workflow,new RegExp(`\\b${asset.replace('.','\\.')}\\b`),`Pages workflow must copy ${asset}`);
-  assert.match(workflow,/cp -R icons js _site\//);assert.match(workflow,/_site\/build\.json/);assert.match(workflow,/GITHUB_SHA/);
+  assert.match(workflow,/cp -R icons js _site\//);assert.match(workflow,/_site\/build\.json/);assert.match(workflow,/GITHUB_SHA/);assert.match(workflow,/"validated":true/);assert.match(workflow,/"channel":"alpha"/);assert.match(workflow,/GITHUB_RUN_ID/);
 });
 
 test('Pages deployment is gated by syntax and full tests in the same workflow',()=>{
