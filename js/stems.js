@@ -6,15 +6,15 @@ export function ensureStemState(track){
   if(!track)return track;
   track.useStems=!!track.useStems;
   track.stems=track.stems&&typeof track.stems==='object'?track.stems:{};
-  for(const id of STEM_TYPES){const s=track.stems[id]&&typeof track.stems[id]==='object'?track.stems[id]:{};track.stems[id]={id,label:id.toUpperCase(),buffer:s.buffer||null,renderedBuffer:s.renderedBuffer||null,renderedSignature:s.renderedSignature||null,fileName:s.fileName||null,gainDb:clamp(num(s.gainDb,0),-24,12),mute:!!s.mute,renderStats:s.renderStats||null}}
+  for(const id of STEM_TYPES){const s=track.stems[id]&&typeof track.stems[id]==='object'?track.stems[id]:{};track.stems[id]={id,label:id.toUpperCase(),buffer:s.buffer||null,renderedBuffer:s.renderedBuffer||null,renderedSignature:s.renderedSignature||null,fileName:s.fileName||null,gainDb:clamp(num(s.gainDb,0),-24,12),mute:!!s.mute,renderStats:s.renderStats||null,durationWarning:!!s.durationWarning}}
   return track;
 }
 
 export function loadedStems(track){ensureStemState(track);return STEM_TYPES.map(id=>track.stems[id]).filter(s=>s.buffer)}
 export function hasLoadedStems(track){return loadedStems(track).length>0}
 export function stemDurationCompatible(track,buffer,tolerance=.35){if(!track?.duration||!buffer?.duration)return true;return Math.abs(Number(buffer.duration)-Number(track.duration))<=Math.max(.02,Number(tolerance)||.35)}
-export function setStemBuffer(track,id,buffer,{fileName=null}={}){if(!STEM_TYPES.includes(id))throw new Error(`Unknown stem: ${id}`);ensureStemState(track);const s=track.stems[id];s.buffer=buffer||null;s.fileName=fileName||s.fileName||null;s.renderedBuffer=null;s.renderedSignature=null;s.renderStats=null;return s}
-export function clearStem(track,id){if(!STEM_TYPES.includes(id))return;ensureStemState(track);track.stems[id]={id,label:id.toUpperCase(),buffer:null,renderedBuffer:null,renderedSignature:null,fileName:null,gainDb:0,mute:false,renderStats:null}}
+export function setStemBuffer(track,id,buffer,{fileName=null,durationWarning=false}={}){if(!STEM_TYPES.includes(id))throw new Error(`Unknown stem: ${id}`);ensureStemState(track);const s=track.stems[id];s.buffer=buffer||null;s.fileName=fileName||s.fileName||null;s.renderedBuffer=null;s.renderedSignature=null;s.renderStats=null;s.durationWarning=!!durationWarning;return s}
+export function clearStem(track,id){if(!STEM_TYPES.includes(id))return;ensureStemState(track);track.stems[id]={id,label:id.toUpperCase(),buffer:null,renderedBuffer:null,renderedSignature:null,fileName:null,gainDb:0,mute:false,renderStats:null,durationWarning:false}}
 export function stemGainLinear(stem){return Math.pow(10,num(stem?.gainDb,0)/20)}
 export function setUseStems(track,value){ensureStemState(track);track.useStems=!!value&&hasLoadedStems(track);return track.useStems}
 
