@@ -1,6 +1,7 @@
 import{state,$,$$}from'./state.js';
 import{ensureAudio,stopAudio}from'./audio.js';
 import{projectPlaybackWindow,phraseLoopAt,clampPlayhead}from'./transport-model.js';
+import{applyGainEnvelope}from'./fade-model.js';
 
 const dbToGain=db=>Math.pow(10,(Number(db)||0)/20);
 state.playheadTime=Number.isFinite(state.playheadTime)?state.playheadTime:0;
@@ -25,6 +26,7 @@ let token=0,baseCtx=0,baseProject=0,playLimit=Infinity;
 function fmtTime(t){const m=Math.floor(Math.max(0,t)/60),s=Math.max(0,t)-m*60;return`${m}:${s.toFixed(2).padStart(5,'0')}`}
 function eligible(){const solo=state.tracks.some(t=>t.solo);return state.tracks.filter(t=>(t.renderedBuffer||t.buffer)&&!t.mute&&(!solo||t.solo))}
 function trackStart(t){return Number.isFinite(t.renderedOffset)?t.renderedOffset:0}
+function fadeItem(t,offset){return{offset,fadeInStart:t.fadeInStart,fadeInEnd:t.fadeInEnd,fadeOutStart:t.fadeOutStart,fadeOutEnd:t.fadeOutEnd}}
 
 function updateReadout(){const el=$('#transportTime');if(el)el.textContent=fmtTime(state.playheadTime);const loop=$('#loopToggle');if(loop){loop.classList.toggle('active',state.loopEnabled);loop.textContent=state.loopEnabled?'LOOP ON':'LOOP OFF'}const size=$('#loopBars');if(size)size.value=String(state.loopBars||8)}
 function ensureVisuals(){
@@ -56,8 +58,8 @@ function schedule(from,to=Infinity){
   stopTransport({keep:false});const tracks=eligible();if(!tracks.length)return false;
   const ctx=ensureAudio();if(ctx.state==='suspended')ctx.resume();const my=++token,base=ctx.currentTime+.025;state.sources=[];let last=null,lastEnd=-1;
   for(const t of tracks){
-    const buffer=t.renderedBuffer||t.buffer,w=projectPlaybackWindow(trackStart(t),buffer.duration,from,to,t.trimIn||0,t.trimOut==null?buffer.duration:t.trimOut);if(!w)continue;
-    const src=ctx.createBufferSource(),gain=ctx.createGain();src.buffer=buffer;gain.gain.value=.82*dbToGain(t.gainDb)/Math.sqrt(Math.max(1,tracks.length));src.connect(gain).connect(ctx.destination);src.start(base+w.delay,w.sourceOffset,w.duration);state.sources.push(src);
+    const buffer=t.renderedBuffer||t.buffer,start=trackStart(t),w=projectPlaybackWindow(start,buffer.duration,from,to,t.trimIn||0,t.trimOut==null?buffer.duration:t.trimOut);if(!w)continue;
+    const src=ctx.createBufferSource(),gain=ctx.createGain(),baseGain=.82*dbToGain(t.gainDb)/Math.sqrt(Math.max(1,tracks.length));src.buffer=buffer;applyGainEnvelope(gain.gain,baseGain,fadeItem(t,start),w.projectStart,w.projectEnd,base+w.delay);src.connect(gain).connect(ctx.destination);src.start(base+w.delay,w.sourceOffset,w.duration);state.sources.push(src);
     const end=w.delay+w.duration;if(end>lastEnd){lastEnd=end;last=src}
   }
   if(!state.sources.length)return false;
