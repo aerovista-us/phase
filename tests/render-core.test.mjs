@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { outputDuration, renderGranular } from '../js/render-core.js';
+import { outputDuration, dirtyRenderRanges, dirtyBlendWeight, renderGranular } from '../js/render-core.js';
 import { alignTrackToMaster, correctGridMarker } from '../js/warp.js';
 
 function sine(sr, seconds, hz) {
@@ -19,12 +19,35 @@ test('output duration follows final warp offset', () => {
   assert.equal(outputDuration(10,[{sourceTime:0,targetTime:0},{sourceTime:8,targetTime:6}]),8);
 });
 
+test('dirty render plan marks only genuinely stretched intervals',()=>{
+  const markers=[{sourceTime:0,targetTime:0},{sourceTime:1,targetTime:1.5},{sourceTime:2,targetTime:2.5},{sourceTime:3,targetTime:3.5}];
+  assert.deepEqual(dirtyRenderRanges(markers,3,0),[{start:0,end:1.5}]);
+  assert.deepEqual(dirtyRenderRanges(markers.map(m=>({...m,targetTime:m.sourceTime+1})),3,0),[]);
+  assert.deepEqual(dirtyRenderRanges(markers,3,2),[{start:0,end:3.5}]);
+});
+
+test('dirty boundary blend ramps smoothly',()=>{
+  const r=[{start:1,end:2}],fade=.1;
+  assert.equal(dirtyBlendWeight(.9,r,fade),0);
+  assert.ok(Math.abs(dirtyBlendWeight(.95,r,fade)-.5)<1e-9);
+  assert.equal(dirtyBlendWeight(1,r,fade),1);
+  assert.ok(Math.abs(dirtyBlendWeight(2.05,r,fade)-.5)<1e-9);
+  assert.ok(dirtyBlendWeight(2.1,r,fade)<1e-12);
+});
+
 test('time stretch roughly preserves pitch', () => {
   const sr=8000,input=sine(sr,1,220);
   const result=renderGranular({sampleRate:sr,channels:[input],duration:1,markers:[{sourceTime:0,targetTime:0},{sourceTime:1,targetTime:1.25}],pitch:0,grainSize:512,hop:128});
   assert.ok(Math.abs(result.duration-1.25)<.001);
   const hz=estimateHz(result.channels[0],sr,Math.floor(sr*.2),Math.floor(sr*1.05));
   assert.ok(hz>205&&hz<235,`expected ~220 Hz, got ${hz}`);
+});
+
+test('hybrid render preserves clean PCM after a warped interval',()=>{
+  const sr=8000,input=sine(sr,1.2,173),markers=[{sourceTime:0,targetTime:0},{sourceTime:.5,targetTime:.75},{sourceTime:1,targetTime:1.25}];
+  const result=renderGranular({sampleRate:sr,channels:[input],duration:1.2,markers,pitch:0,grainSize:512,hop:128});
+  const outIndex=Math.round(1.0*sr),sourceIndex=Math.round(.75*sr);
+  assert.ok(Math.abs(result.channels[0][outIndex]-input[sourceIndex])<1e-4,`clean section drifted: ${result.channels[0][outIndex]} vs ${input[sourceIndex]}`);
 });
 
 test('pitch shifts independently of duration', () => {
