@@ -19,6 +19,33 @@ export function outputDuration(duration, markers) {
   return Math.max(0.001, last.targetTime + Math.max(0, duration - last.sourceTime));
 }
 
+export function dirtyRenderRanges(markers,duration,pitch=0,tolerance=.0005){
+  const total=outputDuration(duration,markers);
+  if(Math.abs(Number(pitch)||0)>1e-6)return[{start:0,end:total}];
+  if(!markers?.length||markers.length<2)return[];
+  const ranges=[];
+  for(let i=1;i<markers.length;i++){
+    const a=markers[i-1],b=markers[i],ds=b.sourceTime-a.sourceTime,dt=b.targetTime-a.targetTime;
+    const dirty=ds<=1e-9||dt<=1e-9||Math.abs(dt/ds-1)>tolerance;
+    if(!dirty)continue;
+    const start=Math.max(0,Math.min(a.targetTime,b.targetTime)),end=Math.min(total,Math.max(a.targetTime,b.targetTime));
+    if(end<=start)continue;
+    const prev=ranges.at(-1);if(prev&&start<=prev.end+1e-9)prev.end=Math.max(prev.end,end);else ranges.push({start,end});
+  }
+  return ranges;
+}
+
+function smooth01(x){const t=Math.max(0,Math.min(1,x));return .5-.5*Math.cos(Math.PI*t)}
+export function dirtyBlendWeight(time,ranges,fadeSeconds=.02){
+  const t=Number(time)||0,fade=Math.max(0,Number(fadeSeconds)||0);let weight=0;
+  for(const r of ranges||[]){
+    if(t>=r.start&&t<=r.end)return 1;
+    if(fade>0&&t<r.start&&t>=r.start-fade)weight=Math.max(weight,smooth01((t-(r.start-fade))/fade));
+    else if(fade>0&&t>r.end&&t<=r.end+fade)weight=Math.max(weight,smooth01(1-(t-r.end)/fade));
+  }
+  return weight;
+}
+
 function linearSample(channel, pos) {
   const i = Math.floor(pos), f = pos - i;
   if (i < 0 || i >= channel.length - 1) return 0;
@@ -91,6 +118,18 @@ export function renderGranular({sampleRate,channels,markers,duration,pitch=0,gra
     if (norm[i] <= 1e-6) continue;
     const inv = 1 / norm[i];
     for (let ch = 0; ch < outputs.length; ch++) outputs[ch][i] *= inv;
+  }
+
+  // With timing-only edits, preserve untouched 1:1 sections from original PCM.
+  // Only genuinely stretched intervals use the granular result; short equal-power
+  // boundary blends prevent clicks while avoiding unnecessary processing artifacts.
+  if(Math.abs(Number(pitch)||0)<=1e-6){
+    const ranges=dirtyRenderRanges(markers,duration,0),fadeSeconds=Math.max(.006,Math.min(.03,grainSize/sampleRate*.12));
+    for(let i=0;i<outLength;i++){
+      const t=i/sampleRate,w=dirtyBlendWeight(t,ranges,fadeSeconds);if(w>=.999999)continue;
+      const srcPos=targetToSource(markers,t)*sampleRate,directGain=Math.cos(w*Math.PI/2),processedGain=Math.sin(w*Math.PI/2);
+      for(let ch=0;ch<outputs.length;ch++)outputs[ch][i]=linearSample(channels[ch],srcPos)*directGain+outputs[ch][i]*processedGain;
+    }
   }
   return {channels:outputs,sampleRate,duration:outDuration};
 }
