@@ -46,12 +46,15 @@ export function trackDiagnostics(track){
 }
 
 export function projectDiagnostics(state,environment={}){
-  const tracks=(state?.tracks||[]).map(trackDiagnostics),warnings=[],audioMemoryBytes=tracks.reduce((sum,t)=>sum+(t.memoryBytes||0),0),memoryWarnBytes=Math.max(1,num(environment.audioMemoryWarnBytes,512*1024*1024));
+  const tracks=(state?.tracks||[]).map(trackDiagnostics),warnings=[],audioMemoryBytes=tracks.reduce((sum,t)=>sum+(t.memoryBytes||0),0),memoryWarnBytes=Math.max(1,num(environment.audioMemoryWarnBytes,512*1024*1024)),hasProjectContent=tracks.some(t=>t.loaded||t.fileName);
   for(const t of tracks)for(const w of t.warnings)warnings.push(`${t.label}:${w}`);
   if(state?.dirty)warnings.push('VISUAL_CHANGES_PENDING');
   if(state?.rendering)warnings.push('RENDER_IN_PROGRESS');
   if(audioMemoryBytes>memoryWarnBytes)warnings.push('AUDIO_MEMORY_HIGH');
   if(environment.deployedVersion&&environment.version&&String(environment.deployedVersion)!==String(environment.version))warnings.push('APP_UPDATE_AVAILABLE');
+  if(hasProjectContent&&environment.localStorageWritable===false)warnings.push('LOCAL_STORAGE_UNAVAILABLE');
+  else if(hasProjectContent&&environment.sessionSaved===false)warnings.push('SESSION_MAP_NOT_SAVED');
+  if(num(environment.sessionBytes,0)>2*1024*1024)warnings.push('SESSION_MAP_LARGE');
   if(environment.serviceWorker===false)warnings.push('SERVICE_WORKER_UNAVAILABLE');
   if(environment.worker===false)warnings.push('WEB_WORKER_UNAVAILABLE');
   if(environment.webAudio===false)warnings.push('WEB_AUDIO_UNAVAILABLE');
