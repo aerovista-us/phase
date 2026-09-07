@@ -23,6 +23,16 @@ async function expectContained(page){
   for(const row of result.rows){expect(row.right).toBeLessThanOrEqual(2);expect(row.bottom).toBeLessThanOrEqual(2)}
 }
 
+async function waitForServiceWorkerControl(page){
+  return page.evaluate(async()=>{
+    if(!('serviceWorker'in navigator))return false;
+    await navigator.serviceWorker.ready;
+    if(navigator.serviceWorker.controller)return true;
+    await Promise.race([new Promise(resolve=>navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true})),new Promise(resolve=>setTimeout(resolve,5000))]);
+    return!!navigator.serviceWorker.controller;
+  });
+}
+
 test('Phase boots and completes the core demo mashup workflow',async({page})=>{
   test.setTimeout(45000);const errors=await boot(page);await expectContained(page);
   await page.locator('#demoProject').click();
@@ -41,6 +51,20 @@ test('Phase boots and completes the core demo mashup workflow',async({page})=>{
   await page.locator('#diagPanel').click();await expect(page.locator('#diagDrawer')).toHaveClass(/open/);await expect(page.locator('#diagBody')).toContainText('PWA / STORAGE');await page.locator('#diagClose').click();
   await page.locator('#stemsPanel').click();await expect(page.locator('#stemDrawer')).toHaveClass(/open/);await expect(page.locator('#stemSeparate')).toBeVisible();await page.locator('#stemClose').click();
   expect(errors,errors.join('\n')).toEqual([]);
+});
+
+test('Phase lifecycle saves the session and the PWA relaunches offline',async({page,context})=>{
+  test.setTimeout(40000);const errors=await boot(page);expect(await waitForServiceWorkerControl(page)).toBe(true);
+  await page.locator('#demoProject').click();await expect(page.locator('#engineState')).toContainText('DEMO READY',{timeout:15000});
+  await page.evaluate(()=>window.dispatchEvent(new Event('pagehide')));
+  const saved=await page.evaluate(()=>{const raw=localStorage.getItem('echoverse.phase.session.v5');return raw?JSON.parse(raw):null});
+  expect(saved?.version).toBe(12);expect(saved?.tracks?.[0]?.fileName).toBe('phase-demo-a.wav');expect(saved?.tracks?.[1]?.fileName).toBe('phase-demo-b.wav');expect(saved?.savedAt).toBeTruthy();
+  await context.setOffline(true);
+  await page.reload({waitUntil:'domcontentloaded',timeout:15000});
+  await expect(page.locator('.brand .tag')).toContainText('0.12.8');await expect(page.locator('#demoProject')).toBeVisible({timeout:7000});
+  await page.goto(base+'/recovery.html',{waitUntil:'domcontentloaded',timeout:15000});
+  await expect(page.locator('h1')).toHaveText('PHASE RECOVERY');await expect(page.locator('#saved')).toHaveText('YES');await expect(page.locator('#mapVersion')).toHaveText('12');
+  await context.setOffline(false);expect(errors,errors.join('\n')).toEqual([]);
 });
 
 test('Phase controls remain contained in a compact workstation viewport',async({page})=>{const errors=await boot(page,{width:1024,height:650});await expectContained(page);expect(errors,errors.join('\n')).toEqual([])});
