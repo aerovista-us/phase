@@ -1,13 +1,16 @@
 let loadPromise=null;
 const OPTIONAL=['./stems-ui.js','./diagnostics-ui.js','./help-ui.js'];
+const timing=window.__phaseBootTiming=window.__phaseBootTiming||{};
 
 export function loadOptionalUi(){
   if(loadPromise)return loadPromise;
-  loadPromise=Promise.all(OPTIONAL.map(path=>import(path))).then(modules=>{window.dispatchEvent(new CustomEvent('phase:optional-ui-ready'));return modules}).catch(err=>{console.error('Phase optional UI failed to load',err);window.dispatchEvent(new CustomEvent('phase:optional-ui-error',{detail:{message:String(err?.message||err)}}));throw err});
+  timing.optionalRequestedMs=performance.now();
+  loadPromise=Promise.all(OPTIONAL.map(path=>import(path))).then(modules=>{timing.optionalReadyMs=performance.now();window.dispatchEvent(new CustomEvent('phase:optional-ui-ready',{detail:{readyMs:timing.optionalReadyMs}}));return modules}).catch(err=>{timing.optionalErrorMs=performance.now();console.error('Phase optional UI failed to load',err);window.dispatchEvent(new CustomEvent('phase:optional-ui-error',{detail:{message:String(err?.message||err)}}));throw err});
   return loadPromise;
 }
 
 function schedule(){
+  timing.optionalScheduledMs=performance.now();
   if('requestIdleCallback'in window)requestIdleCallback(()=>loadOptionalUi(),{timeout:900});
   else setTimeout(()=>loadOptionalUi(),250);
 }
