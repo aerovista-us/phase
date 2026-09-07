@@ -2,37 +2,97 @@
 
 **Phase** is the EchoVerse Audio workstation for arranging, warping, synchronizing, remixing, and rendering audio locally.
 
-## Current foundation
+Live alpha: **https://phase.aerovista.us/**
 
-Phase starts from the functional CUTS browser editor and is being refactored into a calmer, local-first audio workstation. Existing transport, multitrack timeline, import, playback, editing, mixer, project state, and WAV export are retained while the new warp architecture is introduced nondestructively.
+## Current foundation — Phase 0.8
 
-## Product direction
+Phase is now a functional local-first mashup workstation rather than only a CUTS-derived prototype shell.
 
-- PWA / installable desktop-like experience
-- Local-first audio and project handling
-- Beat + downbeat detection with visible tick marks
-- Editable beat/downbeat grid
-- Lockable warp anchors
-- Piecewise timing warp: drag a later marker and proportionally stretch only the region after the previous locked anchor
-- Pitch-preserving timing by default; varispeed as an optional mode
-- Visual edits separated from audio DSP for responsive interaction
-- Explicit **Render Changes** step, similar to manual calculation in a spreadsheet
-- Dirty-region rendering and cached playback
-- Mashup tools: align downbeats, match tempo, key assistance, and later stem separation
-- Optional heavy DSP worker on AeroVista/NXCore; Vercel hosts the application shell
+Implemented today:
+
+- installable PWA deployed from GitHub Pages
+- local audio import and Web Audio playback
+- shared multitrack timeline with zoom and seekable playhead
+- BPM, beat, downbeat and key analysis with confidence indicators
+- manual grid correction and editable Bar 1/downbeat phase
+- lockable warp anchors and piecewise timing edits
+- separate pitch control and pitch-preserving background render worker
+- explicit **Render Changes** workflow; source audio remains immutable
+- chosen A/B alignment points and grid-following alignment
+- beat/bar/8/16/32-bar phrase snapping and whole-track MOVE
+- track MUTE / SOLO / LEVEL controls
+- alignment audition, project loops and loop WAV export
+- full mix WAV export
+- project save/load, local session restore and metadata Undo / Redo
+- nondestructive per-track IN / OUT trims
+- reusable arrangement REGION selection with snap/free drag and Region → Loop
+- responsive workstation containment and PWA update handling
 
 ## Architecture principle
 
-The original audio remains immutable. Phase stores edit intent as project data (beat grid, warp anchors, pitch, fades, etc.). The UI immediately projects those edits visually. High-quality audio processing occurs only when the user explicitly renders changes.
+The original audio remains immutable. Phase stores edit intent as project data: beat grid, warp anchors, pitch, placement, alignment points, trims, regions and mix metadata. The interface projects those edits immediately. Expensive DSP is isolated behind explicit rendering so visual editing stays responsive.
 
-## Initial milestones
+```text
+SOURCE AUDIO
+   |
+   +--> ANALYSIS --> PROJECT / EDIT MODEL --> LIVE VISUAL PROJECTION
+   |                                      |
+   |                                      +--> RENDER CHANGES
+   |                                             |
+   +---------------------------------------------+--> LAST RENDER / PLAYBACK / EXPORT
+```
 
-1. **UI / PWA shell** — EchoVerse Phase branding, calmer workstation UI, install/offline shell.
-2. **Warp model** — beat/downbeat overlays, anchor state, drag interactions, dirty-region tracking.
-3. **Analysis** — BPM, beats, downbeats, meter/confidence, manual correction.
-4. **Renderer** — pitch-preserving piecewise time stretch, cached region renders.
-5. **Mashup workflow** — sync downbeats, match tempo/key, stems and export.
+Phase itself stays browser-local and PWA-friendly. GitHub Pages hosts the static application shell at `phase.aerovista.us`. Optional AeroVista/NXCore workers remain a later path for heavyweight jobs such as stem separation or higher-cost DSP; they are not required for the core editor.
+
+## Build roadmap
+
+### 0.8 — Arrangement editing
+
+Current milestone.
+
+- IN / OUT trim
+- arrangement REGION selection
+- trim/region project persistence
+- trim-aware playback and export
+- region-driven audition loop
+- next: region fades and crossfades
+
+### 0.9 — Render quality
+
+- better transient preservation
+- render-boundary crossfades
+- dirty-region rendering rather than whole-track recalculation
+- cache unchanged rendered sections
+- quality/performance modes
+- long-track memory handling
+- render progress/cancel improvements
+- timing and pitch accuracy regression tests
+
+### 0.10 — Mashup intelligence
+
+- stronger downbeat and phrase detection
+- half/double-tempo resolution
+- meter handling
+- phrase/drop/chorus suggestions
+- improved harmonic compatibility guidance
+- all automatic decisions remain editable
+
+### 0.11 — Stems
+
+- vocal/instrumental or multi-stem separation
+- optional local/NXCore heavy worker path
+- stem-aware timeline and export
+
+### 0.12 → 1.0 — Productization
+
+- robust project bundle / audio relinking flow
+- keyboard map and contextual help
+- diagnostics and recovery tooling
+- deeper accessibility and responsive QA
+- performance profiling
+- startup/demo project
+- original EchoVerse Phase signature sound
 
 ## Startup signature
 
-A short original EchoVerse Phase startup/demo sound will eventually auto-load as the first demo asset, in the spirit of memorable classic audio-software demo clips while remaining entirely original to Phase.
+A short original EchoVerse Phase startup/demo sound will eventually auto-load as the first demo asset, inspired by the memorable feel of classic audio-software demo clips while remaining entirely original to Phase.
