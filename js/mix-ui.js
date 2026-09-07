@@ -1,7 +1,7 @@
 import{state,$,$$,markCurrent}from'./state.js';
 import{ensureAudio,stopAudio}from'./audio.js';
 import{projectPlaybackWindow}from'./transport-model.js';
-import{trackNeedsRender,renderTrack,cancelActiveRender}from'./render.js';
+import{trackHasDspEdits,trackNeedsRender,renderTrack,cancelActiveRender}from'./render.js';
 import{renderMix,downloadWav}from'./export.js';
 import{firstDownbeatIndex}from'./arrangement.js';
 import{applyGainEnvelope}from'./fade-model.js';
@@ -29,7 +29,7 @@ function playMix(){if(state.playing){stopAudio();resetTransport();return false}c
 function alignIndex(track){return Number.isInteger(track.alignMarker)&&track.markers[track.alignMarker]?track.alignMarker:firstDownbeatIndex(track)}
 function auditionMix(seconds=12){if(state.rendering)return false;if(state.dirty){$('#engineState').textContent='AUDITION NEEDS CURRENT AUDIO · RENDER CHANGES FIRST';return false}const a=state.tracks[0];if(!a.buffer||!a.markers.length)return false;const tracks=eligible();if(!tracks.length)return false;const ai=alignIndex(a),center=(a.renderedOffset??a.timelineOffset??0)+(a.markers[ai]?.targetTime||0),start=Math.max(0,center-4),end=start+seconds;stopAudio();const ctx=ensureAudio();if(ctx.state==='suspended')ctx.resume();const base=ctx.currentTime+.04;state.sources=[];let last=null,lastEnd=-1;for(const t of tracks){const buffer=t.renderedBuffer||t.buffer,offset=t.renderedOffset??0,w=projectPlaybackWindow(offset,buffer.duration,start,end,t.trimIn||0,t.trimOut==null?buffer.duration:t.trimOut);if(!w)continue;const src=ctx.createBufferSource(),gain=ctx.createGain(),baseGain=.82*dbToGain(t.gainDb)/Math.sqrt(Math.max(1,tracks.length));src.buffer=buffer;applyGainEnvelope(gain.gain,baseGain,fadeItem(t,offset),w.projectStart,w.projectEnd,base+w.delay);src.connect(gain).connect(ctx.destination);src.start(base+w.delay,w.sourceOffset,w.duration);state.sources.push(src);if(w.delay+w.duration>lastEnd){lastEnd=w.delay+w.duration;last=src}}if(!state.sources.length)return false;state.playing=true;$('#auditionAlign').textContent='■ STOP AUDITION';$('#engineState').textContent=`AUDITION · ${start.toFixed(2)}s → ${end.toFixed(2)}s`;if(last)last.onended=()=>{if(state.playing){stopAudio();resetTransport();$('#engineState').textContent='AUDITION COMPLETE'}};return true}
 
-function statsText(tracks){const stats=tracks.map(t=>t.renderStats).filter(s=>s&&Number.isFinite(s.totalGrains)&&s.totalGrains>0);if(!stats.length)return'PLACEMENT / DIRECT PCM';const processed=stats.reduce((n,s)=>n+(s.processedGrains||0),0),total=stats.reduce((n,s)=>n+(s.totalGrains||0),0),pct=total?Math.round(processed/total*100):0,quality=String(stats[0].quality||'balanced').toUpperCase();return`${quality} · DSP ${pct}% OF GRAIN WORK`}
+function statsText(tracks){const stats=tracks.map(t=>t.renderStats).filter(s=>s&&Number.isFinite(s.totalGrains)&&s.totalGrains>0);if(!stats.length)return'PLACEMENT / DIRECT PCM';const processed=stats.reduce((n,s)=>n+(s.processedGrains||0),0),total=stats.reduce((n,s)=>n+(s.totalGrains||0),0),pct=total?Math.round(processed/total*100):0,quality=String(stats[0].quality||'balanced').toUpperCase(),reused=stats.every(s=>s.reused);return`${quality} · ${reused?'REUSED RENDER':'DSP '+pct+'% OF GRAIN WORK'}`}
 
 export async function makeAudioCurrent(){
   if(state.rendering)return;
@@ -39,7 +39,11 @@ export async function makeAudioCurrent(){
   try{
     let done=0,work=loaded.filter(trackNeedsRender);
     for(const t of loaded){
-      if(!trackNeedsRender(t)){t.renderedBuffer=null;t.renderedOffset=t.timelineOffset||0;t.renderedAt=Date.now();t.renderStats={quality:'direct',processedGrains:0,totalGrains:0,workRatio:0,dirtyRanges:[]};continue}
+      if(!trackNeedsRender(t)){
+        if(!trackHasDspEdits(t)){t.renderedBuffer=null;t.renderedSignature=null;t.renderStats={quality:'direct',processedGrains:0,totalGrains:0,workRatio:0,dirtyRanges:[]}}
+        else t.renderStats={...(t.renderStats||{}),reused:true};
+        t.renderedOffset=t.timelineOffset||0;t.renderedAt=Date.now();continue;
+      }
       t.renderedBuffer=await renderTrack(t,p=>{$('#engineState').textContent=`RENDERING ${t.label} · ${Math.round(p*100)}% · ${done+1}/${work.length}`});t.renderedOffset=t.timelineOffset||0;t.renderedAt=Date.now();done++;
     }
     markCurrent();window.dispatchEvent(new Event('resize'));$('#engineState').textContent=`AUDIO CURRENT · ${statsText(loaded)}`;
