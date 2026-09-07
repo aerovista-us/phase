@@ -24,7 +24,7 @@ test('every local index asset exists in the repository',()=>{
 });
 
 test('every service-worker shell asset exists',()=>{
-  const assets=serviceWorkerAssets(read('sw.js'));assert.ok(assets.includes('recovery.html'));assert.ok(assets.includes('ui-polish.css'));assert.ok(assets.includes('js/runtime-guard.js'));assert.ok(assets.includes('js/optional-ui.js'));
+  const assets=serviceWorkerAssets(read('sw.js'));assert.ok(assets.includes('recovery.html'));assert.ok(assets.includes('ui-polish.css'));assert.ok(assets.includes('js/runtime-guard.js'));assert.ok(assets.includes('js/session-safety.js'));assert.ok(assets.includes('js/optional-ui.js'));
   for(const asset of assets){if(asset==='')continue;assert.ok(existsSync(resolve(root,asset)),`missing service-worker asset: ${asset}`)}
 });
 
@@ -55,6 +55,10 @@ test('visible Phase version and cache-bust generation stay consistent',()=>{
   const generations=[...html.matchAll(/[?&]v=(\d+)/g)].map(m=>m[1]);assert.ok(generations.length>10);assert.equal(new Set(generations).size,1);
 });
 
-test('runtime guard loads before workstation modules',()=>{
-  const html=read('index.html'),guard=html.indexOf('./js/runtime-guard.js'),app=html.indexOf('./js/app.js');assert.ok(guard>=0&&app>=0);assert.ok(guard<app);
+test('runtime and lifecycle guards load before workstation modules',()=>{
+  const html=read('index.html'),runtime=html.indexOf('./js/runtime-guard.js'),safety=html.indexOf('./js/session-safety.js'),app=html.indexOf('./js/app.js');assert.ok(runtime>=0&&safety>=0&&app>=0);assert.ok(runtime<safety);assert.ok(safety<app);
+});
+
+test('standalone recovery route exposes runtime history and recovery report',()=>{
+  const html=read('recovery.html');assert.match(html,/echoverse\.phase\.runtimeLog\.v1/);assert.match(html,/DOWNLOAD RECOVERY REPORT/);assert.match(html,/build\.json/);assert.match(html,/RESET APP CACHE \+ WORKER/);
 });
