@@ -1,3 +1,4 @@
+import{stemProjectMetadata,applyStemProjectMetadata}from'./stems.js';
 const clamp=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
 const num=(v,fallback=0)=>Number.isFinite(Number(v))?Number(v):fallback;
 const finiteOrNull=v=>v!=null&&Number.isFinite(Number(v))?Number(v):null;
@@ -12,7 +13,7 @@ function analysisSummary(a){
 export function snapshotProject(state){
   const rs=finiteOrNull(state.regionStart),re=finiteOrNull(state.regionEnd);
   return{
-    app:'EchoVerse Phase',version:10,savedAt:new Date().toISOString(),
+    app:'EchoVerse Phase',version:11,savedAt:new Date().toISOString(),
     bpm:num(state.bpm,120),meterPreference:state.meterPreference||'auto',meter:state.meter||'4/4',beatsPerBar:meterBeats(state.beatsPerBar),viewDuration:num(state.viewDuration,60),pxPerSecond:num(state.pxPerSecond,8),snapMode:state.snapMode||'beat',
     playheadTime:num(state.playheadTime,0),loopBars:num(state.loopBars,8),loopEnabled:!!state.loopEnabled,
     regionStart:rs==null?null:Math.max(0,rs),regionEnd:re==null?null:Math.max(0,re),
@@ -21,7 +22,7 @@ export function snapshotProject(state){
       trimIn:Math.max(0,num(t.trimIn,0)),trimOut:finiteOrNull(t.trimOut)==null?null:Math.max(0,finiteOrNull(t.trimOut)),
       fadeInStart:finiteOrNull(t.fadeInStart),fadeInEnd:finiteOrNull(t.fadeInEnd),fadeOutStart:finiteOrNull(t.fadeOutStart),fadeOutEnd:finiteOrNull(t.fadeOutEnd),
       gridMode:t.gridMode||'manual',alignMarker:Number.isInteger(t.alignMarker)?t.alignMarker:null,gainDb:num(t.gainDb,0),mute:!!t.mute,solo:!!t.solo,
-      analysis:analysisSummary(t.analysis),markers:cloneMarkers(t.markers)
+      ...stemProjectMetadata(t),analysis:analysisSummary(t.analysis),markers:cloneMarkers(t.markers)
     }))
   };
 }
@@ -45,7 +46,7 @@ export function applyTrackSnapshot(track,src,{applyMarkers=true}={}){
   track.gridMode=src.gridMode||track.gridMode||'manual';
   track.alignMarker=Number.isInteger(src.alignMarker)?src.alignMarker:track.alignMarker;
   track.gainDb=clamp(num(src.gainDb,track.gainDb||0),-24,6);
-  track.mute=!!src.mute;track.solo=!!src.solo;
+  track.mute=!!src.mute;track.solo=!!src.solo;applyStemProjectMetadata(track,src);
   if(src.analysis)track.analysis={...(track.analysis||{}),...src.analysis};
   if(applyMarkers&&Array.isArray(src.markers)&&src.markers.length)track.markers=cloneMarkers(src.markers);
   return track;
@@ -70,10 +71,10 @@ export function applyProjectSnapshot(state,data,{loadedOnly=true}={}){
 
 export function editableFingerprint(state){
   const s=snapshotProject(state);delete s.savedAt;
-  s.tracks.forEach(t=>{delete t.name;delete t.fileName;delete t.analysis;});
+  s.tracks.forEach(t=>{delete t.name;delete t.fileName;delete t.analysis;if(t.stems)for(const stem of Object.values(t.stems))delete stem.fileName});
   return JSON.stringify(s);
 }
 
 export function renderFingerprint(state){
-  return JSON.stringify((state.tracks||[]).map(t=>({pitch:num(t.pitch,0),timelineOffset:num(t.timelineOffset,0),markers:cloneMarkers(t.markers).map(m=>({sourceTime:m.sourceTime,targetTime:m.targetTime}))})));
+  return JSON.stringify((state.tracks||[]).map(t=>({pitch:num(t.pitch,0),timelineOffset:num(t.timelineOffset,0),useStems:!!t.useStems,markers:cloneMarkers(t.markers).map(m=>({sourceTime:m.sourceTime,targetTime:m.targetTime}))})));
 }
