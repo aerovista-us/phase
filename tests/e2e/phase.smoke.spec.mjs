@@ -23,12 +23,19 @@ async function expectContained(page){
   for(const row of result.rows){expect(row.right).toBeLessThanOrEqual(2);expect(row.bottom).toBeLessThanOrEqual(2)}
 }
 
-test('Phase boots, demo loads, transport and secondary drawers work',async({page})=>{
-  const errors=await boot(page);await expectContained(page);
+test('Phase boots and completes the core demo mashup workflow',async({page})=>{
+  test.setTimeout(45000);const errors=await boot(page);await expectContained(page);
   await page.locator('#demoProject').click();
   await expect(page.locator('#engineState')).toContainText('DEMO READY',{timeout:15000});
   await expect(page.locator('#sub-0')).not.toContainText('No audio loaded');
   await expect(page.locator('#sub-1')).not.toContainText('No audio loaded');
+  await page.locator('#analyze').click();
+  await expect(page.locator('#engineState')).toContainText('ANALYSIS READY',{timeout:15000});
+  await page.locator('#alignB').click();
+  await expect(page.locator('#engineState')).toContainText('ALIGNED',{timeout:7000});
+  await expect(page.locator('#renderState')).toContainText('VISUAL CHANGES PENDING');
+  await page.locator('#render').click();
+  await expect(page.locator('#renderState')).toContainText('AUDIO CURRENT',{timeout:20000});
   await page.locator('#play').click();await page.waitForTimeout(250);await page.locator('#stop').click();
   await page.locator('#helpPanel').click();await expect(page.locator('#helpDrawer')).toHaveClass(/open/);await expect(page.locator('#helpDrawer')).toBeVisible();await page.locator('#helpClose').click();
   await page.locator('#diagPanel').click();await expect(page.locator('#diagDrawer')).toHaveClass(/open/);await expect(page.locator('#diagBody')).toContainText('PWA / STORAGE');await page.locator('#diagClose').click();
