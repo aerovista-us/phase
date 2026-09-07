@@ -52,7 +52,7 @@ function trackedTarget(el){
   if(el.closest('#undoPhase,#redoPhase,#saveMap,#loadMap,#restoreSession,#play,#stop,#auditionAlign,#render,#exportWav,#exportLoop,#install,#analyze,#loopToggle'))return false;
   if(el.closest('.marker,.lane'))return true;
   if(el.matches('input[id^="bpm-"],input[id^="pitch-"],input[id^="offset-"],input[id^="gain-"],#projectBpm,#phraseSnap'))return true;
-  if(el.closest('[id^="alignSet-"],#alignB,#matchKey,#resetWarp,#setTrimIn,#setTrimOut,#clearTrim'))return true;
+  if(el.closest('[id^="alignSet-"],#alignB,#matchKey,#resetWarp,#setTrimIn,#setTrimOut,#clearTrim,#regionToLoop,#clearRegion,#fadeIn,#fadeOut,#crossfade,#clearFades'))return true;
   return false;
 }
 
