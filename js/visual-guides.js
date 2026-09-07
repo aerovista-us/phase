@@ -1,5 +1,5 @@
 import{state,$}from'./state.js';
-import{firstDownbeatIndex}from'./arrangement.js';
+import{firstDownbeatIndex,meterBeats}from'./arrangement.js';
 
 const style=document.createElement('style');style.textContent=`
 .ruler-lines{left:150px!important;right:0!important;top:0!important;bottom:0!important}
@@ -17,21 +17,22 @@ const style=document.createElement('style');style.textContent=`
 document.head.appendChild(style);
 
 function alignIndex(track){return Number.isInteger(track.alignMarker)&&track.markers?.[track.alignMarker]?track.alignMarker:firstDownbeatIndex(track)}
-function signature(){return JSON.stringify({b:state.bpm,v:state.viewDuration,s:state.snapMode,t:state.tracks.map(t=>[t.timelineOffset,t.alignMarker,t.markers?.[alignIndex(t)]?.targetTime])})}
+function trackBpb(track){return meterBeats(track?.analysis?.beatsPerBar??track?.beatsPerBar??state.beatsPerBar??4)}
+function signature(){return JSON.stringify({b:state.bpm,m:state.meter,bpb:state.beatsPerBar,v:state.viewDuration,s:state.snapMode,t:state.tracks.map(t=>[t.timelineOffset,t.alignMarker,t.meter,t.beatsPerBar,t.markers?.[alignIndex(t)]?.targetTime])})}
 let last='';
 
 function renderGuides(){
   const host=$('.ruler-lines');if(!host)return;
   const old=host.querySelector('.phase-guide-layer');if(old)old.remove();
   const layer=document.createElement('div');layer.className='phase-guide-layer';
-  const bpm=Math.max(1,state.bpm||120),view=Math.max(1,state.viewDuration||60),bar=60/bpm*4,totalBars=Math.ceil(view/bar);
+  const bpm=Math.max(1,state.bpm||120),view=Math.max(1,state.viewDuration||60),bpb=meterBeats(state.beatsPerBar||4),bar=60/bpm*bpb,totalBars=Math.ceil(view/bar);
   for(let bars=8;bars<=totalBars;bars+=8){
     const time=bars*bar;if(time>view)break;const g=document.createElement('div');g.className='phrase-guide'+(bars%32===0?' p32':bars%16===0?' p16':'');g.style.left=`${time/view*100}%`;
-    if(bars%16===0){const s=document.createElement('span');s.textContent=`${bars} BARS`;g.appendChild(s)}layer.appendChild(g);
+    if(bars%16===0){const s=document.createElement('span');s.textContent=`${bars} BARS · ${state.meter||'4/4'}`;g.appendChild(s)}layer.appendChild(g);
   }
   state.tracks.forEach((t,i)=>{
     if(!t.buffer||!t.markers?.length)return;const idx=alignIndex(t),m=t.markers[idx];if(!m)return;const time=(t.timelineOffset||0)+m.targetTime;if(time<0||time>view)return;
-    const g=document.createElement('div');g.className='align-guide'+(i?' b':'');g.style.left=`${time/view*100}%`;const s=document.createElement('span');s.textContent=`${t.label} ALIGN ${Math.floor(idx/4)+1}.${idx%4+1}`;g.appendChild(s);layer.appendChild(g);
+    const bpbTrack=trackBpb(t),g=document.createElement('div');g.className='align-guide'+(i?' b':'');g.style.left=`${time/view*100}%`;const s=document.createElement('span');s.textContent=`${t.label} ALIGN ${Math.floor(idx/bpbTrack)+1}.${idx%bpbTrack+1}`;g.appendChild(s);layer.appendChild(g);
   });
   host.appendChild(layer);
 }
@@ -40,3 +41,4 @@ setInterval(()=>{const host=$('.ruler-lines');if(!host)return;const sig=signatur
 window.addEventListener('resize',()=>setTimeout(renderGuides,0));
 window.addEventListener('phase:project-applied',()=>setTimeout(renderGuides,0));
 window.addEventListener('phase:history-applied',()=>setTimeout(renderGuides,0));
+window.addEventListener('phase:meter-change',()=>setTimeout(renderGuides,0));
