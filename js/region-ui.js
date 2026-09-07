@@ -40,11 +40,11 @@ function installControls(){
 function bindLane(lane){if(lane.dataset.regionBound)return;lane.dataset.regionBound='1';lane.addEventListener('mousedown',e=>{
   if(state.mode!=='region'||e.button!==0)return;
   e.preventDefault();e.stopImmediatePropagation();const rect=lane.getBoundingClientRect(),view=Math.max(1,state.viewDuration||60),at=ev=>Math.max(0,Math.min(view,(ev.clientX-rect.left)/rect.width*view)),anchor=at(e);
-  let latest=null;const update=ev=>{latest=regionFromDrag(anchor,at(ev),{viewDuration:view,bpm:state.bpm,snapMode:state.snapMode||'beat',free:ev.shiftKey});setRegion(latest);$('#engineState').textContent=latest?`REGION · ${fmt(latest.start)} → ${fmt(latest.end)}${ev.shiftKey?' · FREE':' · SNAP '+String(state.snapMode||'beat').toUpperCase()}`:'REGION · DRAG FARTHER'};
+  let latest=null;const update=ev=>{latest=regionFromDrag(anchor,at(ev),{viewDuration:view,bpm:state.bpm,snapMode:state.snapMode||'beat',beatsPerBar:state.beatsPerBar||4,free:ev.shiftKey});setRegion(latest);$('#engineState').textContent=latest?`REGION · ${fmt(latest.start)} → ${fmt(latest.end)}${ev.shiftKey?' · FREE':' · SNAP '+String(state.snapMode||'beat').toUpperCase()} · ${state.meter||'4/4'}`:'REGION · DRAG FARTHER'};
   update(e);const move=ev=>update(ev),up=ev=>{update(ev);window.removeEventListener('mousemove',move,true);window.removeEventListener('mouseup',up,true);if(latest)$('#engineState').textContent=`REGION SET · ${fmt(latest.start)} → ${fmt(latest.end)} · ${latest.duration.toFixed(2)}s`};window.addEventListener('mousemove',move,true);window.addEventListener('mouseup',up,true);
 },true)}
 function bindAll(){installControls();$$('.lane').forEach(bindLane);paint()}
 
 window.addEventListener('keydown',e=>{if(e.target.matches('input,select,textarea')||e.ctrlKey||e.metaKey||e.altKey)return;if(e.code==='KeyR'){e.preventDefault();activateRegion()}if(e.code==='Escape'&&state.mode==='region'){state.mode='select';$$('.mode[data-mode]').forEach(b=>b.classList.toggle('active',b.dataset.mode==='select'));paint()}});
-window.addEventListener('resize',bindAll);window.addEventListener('phase:project-applied',()=>setTimeout(bindAll,0));window.addEventListener('phase:history-applied',()=>setTimeout(bindAll,0));
+window.addEventListener('resize',bindAll);window.addEventListener('phase:project-applied',()=>setTimeout(bindAll,0));window.addEventListener('phase:history-applied',()=>setTimeout(bindAll,0));window.addEventListener('phase:meter-change',()=>setTimeout(paint,0));
 bindAll();
