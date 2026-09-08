@@ -19,6 +19,12 @@ export function renderSignature(track,quality){
   return JSON.stringify({quality:q,duration:Number(track.duration)||track.buffer.duration||0,pitch:Number(track.pitch)||0,markers:(track.markers||[]).map(m=>[Number(m.sourceTime)||0,Number(m.targetTime)||0])});
 }
 
+export function trackRenderedAudioMatchesEdits(track){
+  if(!track?.renderedBuffer)return false;
+  const quality=track.renderStats?.quality||track.renderQuality||'balanced';
+  return track.renderedSignature===renderSignature(track,quality);
+}
+
 export function trackNeedsRender(track,tolerance=.0005,quality){
   if(!trackHasDspEdits(track,tolerance))return false;
   const signature=renderSignature(track,quality);
