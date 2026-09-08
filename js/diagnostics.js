@@ -45,6 +45,22 @@ export function trackDiagnostics(track){
   };
 }
 
+
+export function performanceProfile(environment={},project={}){
+  const bt=environment.bootTiming||{},nt=environment.navigationTiming||{};
+  const domInteractive=Number(nt.domInteractiveMs),coreReady=Number(bt.runtimeReadyMs??bt.loadMs??nt.loadEventMs),optionalLatency=Number.isFinite(Number(bt.optionalReadyMs))&&Number.isFinite(Number(bt.optionalRequestedMs))?Number(bt.optionalReadyMs)-Number(bt.optionalRequestedMs):NaN;
+  const memoryBytes=Math.max(0,num(project.audioMemoryBytes,0)),memoryWarnBytes=Math.max(1,num(project.memoryWarnBytes,512*1024*1024)),memoryRatio=memoryBytes/memoryWarnBytes;
+  const signals=[];
+  const add=(id,value,good,watch)=>{if(!Number.isFinite(value))return;signals.push({id,value,status:value<=good?'ready':value<=watch?'watch':'pressure'})};
+  add('DOM_INTERACTIVE_MS',domInteractive,1500,3000);
+  add('CORE_READY_MS',coreReady,3000,5000);
+  add('OPTIONAL_UI_LATENCY_MS',optionalLatency,1200,2500);
+  signals.push({id:'AUDIO_MEMORY_RATIO',value:round(memoryRatio,3),status:memoryRatio<=.75?'ready':memoryRatio<=1?'watch':'pressure'});
+  const pressure=signals.filter(s=>s.status==='pressure').length,watch=signals.filter(s=>s.status==='watch').length,status=pressure?'pressure':watch?'watch':'ready';
+  const score=Math.max(0,100-pressure*30-watch*12);
+  return{status,score,signals,thresholds:{domInteractiveReadyMs:1500,domInteractivePressureMs:3000,coreReadyReadyMs:3000,coreReadyPressureMs:5000,optionalLatencyReadyMs:1200,optionalLatencyPressureMs:2500,audioMemoryReadyRatio:.75,audioMemoryPressureRatio:1}};
+}
+
 export function projectDiagnostics(state,environment={}){
   const tracks=(state?.tracks||[]).map(trackDiagnostics),warnings=[],audioMemoryBytes=tracks.reduce((sum,t)=>sum+(t.memoryBytes||0),0),memoryWarnBytes=Math.max(1,num(environment.audioMemoryWarnBytes,512*1024*1024)),hasProjectContent=tracks.some(t=>t.loaded||t.fileName);
   for(const t of tracks)for(const w of t.warnings)warnings.push(`${t.label}:${w}`);
@@ -59,9 +75,10 @@ export function projectDiagnostics(state,environment={}){
   if(environment.worker===false)warnings.push('WEB_WORKER_UNAVAILABLE');
   if(environment.webAudio===false)warnings.push('WEB_AUDIO_UNAVAILABLE');
   if(environment.offlineAudio===false)warnings.push('OFFLINE_AUDIO_UNAVAILABLE');
+  const project={bpm:round(state?.bpm||120,2),meter:state?.meter||'4/4',dirty:!!state?.dirty,previewCurrent:!!state?.previewCurrent,previewRendering:!!state?.previewRendering,rendering:!!state?.rendering,playing:!!state?.playing,viewDuration:round(state?.viewDuration||0),zoomPxPerSecond:round(state?.pxPerSecond||0),audioMemoryBytes,memoryWarnBytes};
   return{
     generatedAt:new Date().toISOString(),app:'EchoVerse Phase',version:String(environment.version||''),
-    environment:{...environment},project:{bpm:round(state?.bpm||120,2),meter:state?.meter||'4/4',dirty:!!state?.dirty,previewCurrent:!!state?.previewCurrent,previewRendering:!!state?.previewRendering,rendering:!!state?.rendering,playing:!!state?.playing,viewDuration:round(state?.viewDuration||0),zoomPxPerSecond:round(state?.pxPerSecond||0),audioMemoryBytes,memoryWarnBytes},
+    environment:{...environment},project,performance:performanceProfile(environment,project),
     tracks,warnings:[...new Set(warnings)],healthy:warnings.length===0
   };
 }
