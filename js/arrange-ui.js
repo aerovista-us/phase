@@ -69,7 +69,7 @@ function alignSelected(){
   b.timelineOffset=a.timelineOffset||0;
   const off=$(`#offset-${b.id}`);off.value=b.timelineOffset.toFixed(2);off.onchange?.({target:off});
   state.bpm=a.sourceBpm;state.beatsPerBar=trackBpb(a);state.meter=a.meter||a.analysis?.meter||state.meter||'4/4';$('#projectBpm').value=state.bpm.toFixed(2);markDirty();refreshAlignDecor();window.dispatchEvent(new CustomEvent('phase:meter-change'));
-  $('#engineState').textContent=`ALIGNED · A ${markerLabel(a,ai)} ↔ B ${markerLabel(b,bi)} · ${state.bpm.toFixed(2)} BPM · ${state.meter}`;
+  $('#engineState').textContent=`ALIGNED · A ${markerLabel(a,ai)} ↔ B ${markerLabel(b,bi)} · ${state.bpm.toFixed(2)} BPM · ${state.meter} · PREVIEW QUEUED`;
 }
 
 function overrideMove(){
@@ -82,7 +82,7 @@ function overrideMove(){
       lane.classList.add('move-active');let raf=0,pending=startOffset;
       const apply=()=>{raf=0;track.timelineOffset=pending;input.value=pending.toFixed(2);input.onchange?.({target:input})};
       const move=ev=>{let next=startOffset+(ev.clientX-startX)/rect.width*view;if(!ev.shiftKey)next=snapTrackOffset(next,anchorTime,state.bpm,state.snapMode,state.beatsPerBar||4);pending=next;if(!raf)raf=requestAnimationFrame(apply);$('#engineState').textContent=`MOVING ${track.label} · ${next.toFixed(2)}s · ${ev.shiftKey?'FREE':state.snapMode.toUpperCase()+' SNAP'} · ${state.meter||'4/4'}`};
-      const up=()=>{if(raf){cancelAnimationFrame(raf);apply()}lane.classList.remove('move-active');window.removeEventListener('mousemove',move);window.removeEventListener('mouseup',up);$('#engineState').textContent=`${track.label} POSITION PENDING · RENDER TO COMMIT`};
+      const up=()=>{if(raf){cancelAnimationFrame(raf);apply()}lane.classList.remove('move-active');window.removeEventListener('mousemove',move);window.removeEventListener('mouseup',up);$('#engineState').textContent=`${track.label} POSITION UPDATED · AUDIO PREVIEW CATCHING UP`};
       window.addEventListener('mousemove',move);window.addEventListener('mouseup',up);
     };
   }
