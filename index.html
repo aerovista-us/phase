@@ -8,8 +8,8 @@
 <meta name="description" content="EchoVerse Phase — local-first audio warp, sync and remix workstation.">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icons/phase.svg" type="image/svg+xml">
-<link rel="stylesheet" href="./styles.css?v=1300">
-<link rel="stylesheet" href="./ui-polish.css?v=1300">
+<link rel="stylesheet" href="./styles.css?v=1301">
+<link rel="stylesheet" href="./ui-polish.css?v=1301">
 </head>
 <body>
 <div class="app">
@@ -35,6 +35,16 @@
     <button class="mode active" id="downbeatsToggle">DOWNBEATS</button>
     <button class="mode" id="alignB">ALIGN B → A</button>
     <button class="mode" id="resetWarp">RESET WARP</button>
+  </div>
+
+  <div class="readinessbar" role="status" aria-label="Phase production readiness">
+    <span class="readiness-title">WORKSTATION</span>
+    <span class="readiness-item">AUDIO <strong id="readyAudio">CURRENT</strong></span>
+    <span class="readiness-item">SESSION <strong id="readySession">READY</strong></span>
+    <span class="readiness-item">BUILD <strong id="readyBuild">CHECKING</strong></span>
+    <span class="readiness-item">PERF <strong id="readyPerf">MEASURING</strong></span>
+    <span class="readiness-spacer"></span>
+    <button class="readiness-action" id="readinessDiag" type="button">OPEN DIAG</button>
   </div>
 
   <main class="workspace">
@@ -76,25 +86,26 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(console.warn);
 }
 </script>
-<script type="module" src="./js/runtime-guard.js?v=1300"></script>
-<script type="module" src="./js/session-safety.js?v=1300"></script>
-<script type="module" src="./js/app.js?v=1300"></script>
-<script type="module" src="./js/arrange-ui.js?v=1300"></script>
-<script type="module" src="./js/mix-ui.js?v=1300"></script>
-<script type="module" src="./js/project-ui.js?v=1300"></script>
-<script type="module" src="./js/history-ui.js?v=1300"></script>
-<script type="module" src="./js/visual-guides.js?v=1300"></script>
-<script type="module" src="./js/transport-ui.js?v=1300"></script>
-<script type="module" src="./js/export-loop-ui.js?v=1300"></script>
-<script type="module" src="./js/trim-ui.js?v=1300"></script>
-<script type="module" src="./js/region-ui.js?v=1300"></script>
-<script type="module" src="./js/fade-ui.js?v=1300"></script>
-<script type="module" src="./js/render-quality-ui.js?v=1300"></script>
-<script type="module" src="./js/meter-ui.js?v=1300"></script>
-<script type="module" src="./js/tempo-ui.js?v=1300"></script>
-<script type="module" src="./js/phrase-ui.js?v=1300"></script>
-<script type="module" src="./js/compatibility-ui.js?v=1300"></script>
-<script type="module" src="./js/accessibility-ui.js?v=1300"></script>
-<script type="module" src="./js/optional-ui.js?v=1300"></script>
+<script type="module" src="./js/runtime-guard.js?v=1301"></script>
+<script type="module" src="./js/session-safety.js?v=1301"></script>
+<script type="module" src="./js/app.js?v=1301"></script>
+<script type="module" src="./js/readiness-ui.js?v=1301"></script>
+<script type="module" src="./js/arrange-ui.js?v=1301"></script>
+<script type="module" src="./js/mix-ui.js?v=1301"></script>
+<script type="module" src="./js/project-ui.js?v=1301"></script>
+<script type="module" src="./js/history-ui.js?v=1301"></script>
+<script type="module" src="./js/visual-guides.js?v=1301"></script>
+<script type="module" src="./js/transport-ui.js?v=1301"></script>
+<script type="module" src="./js/export-loop-ui.js?v=1301"></script>
+<script type="module" src="./js/trim-ui.js?v=1301"></script>
+<script type="module" src="./js/region-ui.js?v=1301"></script>
+<script type="module" src="./js/fade-ui.js?v=1301"></script>
+<script type="module" src="./js/render-quality-ui.js?v=1301"></script>
+<script type="module" src="./js/meter-ui.js?v=1301"></script>
+<script type="module" src="./js/tempo-ui.js?v=1301"></script>
+<script type="module" src="./js/phrase-ui.js?v=1301"></script>
+<script type="module" src="./js/compatibility-ui.js?v=1301"></script>
+<script type="module" src="./js/accessibility-ui.js?v=1301"></script>
+<script type="module" src="./js/optional-ui.js?v=1301"></script>
 </body>
 </html>

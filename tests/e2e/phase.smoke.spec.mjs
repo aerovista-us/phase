@@ -9,6 +9,9 @@ async function boot(page,{width=1440,height=900}={}){
   await expect(page.locator('.brand .tag')).toContainText('0.13.0');
   await expect(page.locator('#engineState')).toBeVisible();
   await expect(page.locator('#demoProject')).toBeVisible({timeout:5000});
+  await expect(page.locator('.readinessbar')).toBeVisible();
+  await expect(page.locator('#readyAudio')).toHaveText(/CURRENT|PREVIEW/);
+  await expect(page.locator('#readyPerf')).toHaveText(/READY|WATCH|PRESSURE/,{timeout:5000});
   return errors;
 }
 
@@ -61,6 +64,7 @@ test('Phase lifecycle saves the session and the PWA relaunches offline',async({p
   test.setTimeout(40000);const errors=await boot(page);expect(await waitForServiceWorkerControl(page)).toBe(true);
   await page.locator('#demoProject').click();await expect(page.locator('#engineState')).toContainText('DEMO READY',{timeout:15000});
   await page.evaluate(()=>window.dispatchEvent(new Event('pagehide')));
+  await expect(page.locator('#readySession')).toContainText('SAVED');
   const saved=await page.evaluate(()=>{const raw=localStorage.getItem('echoverse.phase.session.v5');return raw?JSON.parse(raw):null});
   expect(saved?.version).toBe(12);expect(saved?.tracks?.[0]?.fileName).toBe('phase-demo-a.wav');expect(saved?.tracks?.[1]?.fileName).toBe('phase-demo-b.wav');expect(saved?.savedAt).toBeTruthy();
   await context.setOffline(true);

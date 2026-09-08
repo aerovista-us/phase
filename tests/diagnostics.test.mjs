@@ -1,5 +1,5 @@
 import test from'node:test';import assert from'node:assert/strict';
-import{audioBufferBytes,trackAudioMemoryBytes,markerGridIssues,trackDiagnostics,projectDiagnostics,diagnosticSeverity}from'../js/diagnostics.js';
+import{audioBufferBytes,trackAudioMemoryBytes,markerGridIssues,trackDiagnostics,projectDiagnostics,diagnosticSeverity,performanceProfile}from'../js/diagnostics.js';
 
 const audio=(duration=10,sampleRate=44100,channels=2)=>({duration,sampleRate,numberOfChannels:channels,length:Math.round(duration*sampleRate)});
 const track=()=>({id:0,label:'TRACK A',file:{name:'a.wav'},buffer:audio(),duration:10,sourceBpm:100,meter:'4/4',gridMode:'detected',markers:[{sourceTime:0,targetTime:0},{sourceTime:.6,targetTime:.6}],analysis:{bpm:100,meter:'4/4',key:'Am',tempoConfidence:.8,meterConfidence:.7,downbeatConfidence:.6,keyConfidence:.9},timelineOffset:0,renderedOffset:0,gainDb:0,stems:{}});
@@ -18,3 +18,6 @@ test('loaded project warns when the session map is not saved',()=>{const r=proje
 test('local storage failure is error severity when a project is loaded',()=>{const r=projectDiagnostics({tracks:[track()]},{serviceWorker:true,worker:true,webAudio:true,offlineAudio:true,localStorageWritable:false,sessionSaved:false});assert.ok(r.warnings.includes('LOCAL_STORAGE_UNAVAILABLE'));assert.equal(diagnosticSeverity(r),'error')});
 test('large saved project map is surfaced as a warning',()=>{const r=projectDiagnostics({tracks:[]},{serviceWorker:true,worker:true,webAudio:true,offlineAudio:true,sessionBytes:2*1024*1024+1});assert.ok(r.warnings.includes('SESSION_MAP_LARGE'));assert.equal(diagnosticSeverity(r),'warning')});
 test('missing required browser engine is error severity',()=>{const r=projectDiagnostics({tracks:[]},{serviceWorker:true,worker:false,webAudio:true,offlineAudio:true});assert.equal(diagnosticSeverity(r),'error');assert.ok(r.warnings.includes('WEB_WORKER_UNAVAILABLE'))});
+
+test('performance profile reports ready startup and memory headroom',()=>{const p=performanceProfile({navigationTiming:{domInteractiveMs:800},bootTiming:{runtimeReadyMs:1400,optionalRequestedMs:900,optionalReadyMs:1300}},{audioMemoryBytes:128*1024*1024,memoryWarnBytes:512*1024*1024});assert.equal(p.status,'ready');assert.equal(p.score,100);assert.ok(p.signals.every(s=>s.status==='ready'))});
+test('performance profile surfaces runtime pressure without failing diagnostics capability checks',()=>{const p=performanceProfile({navigationTiming:{domInteractiveMs:3600},bootTiming:{runtimeReadyMs:6200,optionalRequestedMs:500,optionalReadyMs:3600}},{audioMemoryBytes:700*1024*1024,memoryWarnBytes:512*1024*1024});assert.equal(p.status,'pressure');assert.ok(p.score<50);assert.ok(p.signals.some(s=>s.id==='AUDIO_MEMORY_RATIO'&&s.status==='pressure'))});
