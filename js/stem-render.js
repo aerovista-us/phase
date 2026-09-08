@@ -1,10 +1,16 @@
-import{trackHasDspEdits,trackNeedsRender,renderTrack}from'./render.js';
+import{trackHasDspEdits,trackNeedsRender,trackRenderedAudioMatchesEdits,renderTrack}from'./render.js';
 import{ensureStemState,loadedStems}from'./stems.js';
 
 const directStats=()=>({quality:'direct',processedGrains:0,totalGrains:0,workRatio:0,dirtyRanges:[],reused:false});
 function proxy(track,stem){return{buffer:stem.buffer,duration:stem.buffer?.duration||track.duration,pitch:track.pitch||0,markers:track.markers||[],renderQuality:track.renderQuality,renderedBuffer:stem.renderedBuffer||null,renderedSignature:stem.renderedSignature||null,renderStats:stem.renderStats||null}}
 function commit(stem,p,buffer){stem.renderedBuffer=buffer;stem.renderedSignature=p.renderedSignature||null;stem.renderStats=p.renderStats||null;return buffer}
 export function usingStemSources(track){ensureStemState(track);return!!track.useStems&&loadedStems(track).length>0}
+export function stemSourcesHaveCurrentAudio(track){
+  if(!track?.buffer)return false;
+  if(!trackHasDspEdits(track))return true;
+  if(!usingStemSources(track))return trackRenderedAudioMatchesEdits(track);
+  const stems=loadedStems(track);return!!stems.length&&stems.every(stem=>trackRenderedAudioMatchesEdits(proxy(track,stem)));
+}
 export function stemSourcesNeedRender(track,quality){
   if(!track?.buffer)return false;
   if(!usingStemSources(track))return trackNeedsRender(track,.0005,quality);
