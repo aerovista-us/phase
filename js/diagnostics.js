@@ -48,8 +48,8 @@ export function trackDiagnostics(track){
 export function projectDiagnostics(state,environment={}){
   const tracks=(state?.tracks||[]).map(trackDiagnostics),warnings=[],audioMemoryBytes=tracks.reduce((sum,t)=>sum+(t.memoryBytes||0),0),memoryWarnBytes=Math.max(1,num(environment.audioMemoryWarnBytes,512*1024*1024)),hasProjectContent=tracks.some(t=>t.loaded||t.fileName);
   for(const t of tracks)for(const w of t.warnings)warnings.push(`${t.label}:${w}`);
-  if(state?.dirty)warnings.push('VISUAL_CHANGES_PENDING');
-  if(state?.rendering)warnings.push('RENDER_IN_PROGRESS');
+  if(state?.dirty)warnings.push('FINAL_RENDER_PENDING');
+  if(state?.rendering)warnings.push('FINAL_RENDER_IN_PROGRESS');
   if(audioMemoryBytes>memoryWarnBytes)warnings.push('AUDIO_MEMORY_HIGH');
   if(environment.deployedVersion&&environment.version&&String(environment.deployedVersion)!==String(environment.version))warnings.push('APP_UPDATE_AVAILABLE');
   if(hasProjectContent&&environment.localStorageWritable===false)warnings.push('LOCAL_STORAGE_UNAVAILABLE');
@@ -61,7 +61,7 @@ export function projectDiagnostics(state,environment={}){
   if(environment.offlineAudio===false)warnings.push('OFFLINE_AUDIO_UNAVAILABLE');
   return{
     generatedAt:new Date().toISOString(),app:'EchoVerse Phase',version:String(environment.version||''),
-    environment:{...environment},project:{bpm:round(state?.bpm||120,2),meter:state?.meter||'4/4',dirty:!!state?.dirty,rendering:!!state?.rendering,playing:!!state?.playing,viewDuration:round(state?.viewDuration||0),zoomPxPerSecond:round(state?.pxPerSecond||0),audioMemoryBytes,memoryWarnBytes},
+    environment:{...environment},project:{bpm:round(state?.bpm||120,2),meter:state?.meter||'4/4',dirty:!!state?.dirty,previewCurrent:!!state?.previewCurrent,previewRendering:!!state?.previewRendering,rendering:!!state?.rendering,playing:!!state?.playing,viewDuration:round(state?.viewDuration||0),zoomPxPerSecond:round(state?.pxPerSecond||0),audioMemoryBytes,memoryWarnBytes},
     tracks,warnings:[...new Set(warnings)],healthy:warnings.length===0
   };
 }
