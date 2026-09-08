@@ -24,7 +24,7 @@ function syncInputs(){
 function updateButtons(){const u=$('#undoPhase'),r=$('#redoPhase');if(u)u.disabled=!undo.length;if(r)r.disabled=!redo.length}
 function begin(){if(before)return;before=snapshotProject(state);beforeFp=editableFingerprint(state)}
 function commit(){if(!before)return;const now=editableFingerprint(state);if(now!==beforeFp){undo.push(before);if(undo.length>MAX)undo.shift();redo.length=0}before=null;beforeFp='';updateButtons()}
-function apply(snap,label){const wasDirty=state.dirty,renderChanged=renderFingerprint(state)!==renderFingerprint(snap);applyProjectSnapshot(state,snap,{loadedOnly:true});syncInputs();if(wasDirty||renderChanged)markDirty();$('#engineState').textContent=state.dirty?`${label} · VISUAL CHANGES PENDING`:`${label} · APPLIED`}
+function apply(snap,label){const wasDirty=state.dirty,renderChanged=renderFingerprint(state)!==renderFingerprint(snap);applyProjectSnapshot(state,snap,{loadedOnly:true});syncInputs();if(wasDirty||renderChanged)markDirty();$('#engineState').textContent=state.dirty?`${label} · EDIT APPLIED · AUDIO PREVIEW QUEUED`:`${label} · APPLIED`}
 function doUndo(){commit();if(!undo.length)return;const current=snapshotProject(state),snap=undo.pop();redo.push(current);apply(snap,'UNDO');updateButtons()}
 function doRedo(){commit();if(!redo.length)return;const current=snapshotProject(state),snap=redo.pop();undo.push(current);apply(snap,'REDO');updateButtons()}
 
