@@ -4,9 +4,9 @@
 
 Live alpha: **https://phase.aerovista.us/**
 
-## Current foundation — Phase 0.12.8
+## Current foundation — Phase 0.13.0
 
-Phase is now a functional local-first mashup workstation with recovery, diagnostics, staged startup, lightweight project packaging, lifecycle-safe session persistence, resource preflight and an original first-run demo.
+Phase is now a functional local-first mashup workstation with recovery, diagnostics, staged startup, lightweight project packaging, lifecycle-safe session persistence, resource preflight, production-readiness telemetry and an original first-run demo.
 
 Implemented today:
 
@@ -55,6 +55,8 @@ Implemented today:
 - static-shell CI checks that verify Pages artifact coverage, the complete offline JavaScript module graph, relative imports, version consistency, lifecycle/runtime guard ordering and deploy-gate retention
 - original procedural two-track **DEMO** generated locally and loaded through Phase's real file/decode path
 - responsive workstation containment and network-first alpha PWA update handling
+- compact production-readiness rail for audio, session persistence, deployed build and performance health
+- scored DIAG performance profile using real boot timing and decoded-audio memory headroom
 
 ## Architecture principle
 
@@ -140,8 +142,8 @@ Completed:
 
 Remaining before 1.0:
 
-- performance profiling using real DIAG timing/memory evidence
-- deeper real-browser interaction QA
+- deeper real-browser interaction QA across representative music and devices
+- continued performance tuning when the readiness profile reports WATCH/PRESSURE on representative hardware
 - original EchoVerse Phase startup/signature sound
 - actual local/NXCore separation service provisioning
 - final release-readiness QA and issue cleanup
