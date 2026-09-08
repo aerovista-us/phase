@@ -4,6 +4,7 @@ import{projectPlaybackWindow}from'./transport-model.js';
 import{cancelActiveRender}from'./render.js';
 import{stemSourcesNeedRender,stemSourcesHaveCurrentAudio,renderTrackSources,clearInactiveRenderState,sourceRenderStats,usingStemSources}from'./stem-render.js';
 import{dbToGain,eligibleTracks,playbackParts,exportItemsForTracks}from'./source-model.js';
+import{estimateRenderPeakBytes,classifyResourceUse}from'./resource-preflight.js';
 import{renderMix,downloadWav}from'./export.js';
 import{firstDownbeatIndex}from'./arrangement.js';
 import{applyGainEnvelope}from'./fade-model.js';
@@ -30,7 +31,8 @@ function fadeItem(t,offset){return{offset,fadeInStart:t.fadeInStart,fadeInEnd:t.
 function abortError(){const e=new Error('Preview superseded');e.name='AbortError';return e}
 function syncCheapPlacement(){for(const t of state.tracks)if(t.buffer)t.renderedOffset=t.timelineOffset||0}
 function clearPreviewTimer(){if(previewTimer){clearTimeout(previewTimer);previewTimer=0}}
-function supersedePreview(){clearPreviewTimer();previewToken++;if(state.previewRendering)cancelActiveRender()}
+function supersedePreview(){clearPreviewTimer();previewToken++;if(state.previewRendering)cancelActiveRender();state.previewRendering=false}
+function previewMemorySafe(){const estimate=estimateRenderPeakBytes(state),classification=classifyResourceUse(estimate,{deviceMemoryGB:Number(navigator.deviceMemory)||null});if(classification.level==='ok')return true;state.previewRendering=false;state.previewCurrent=false;const status=$('#renderState');if(status)status.textContent='EDIT LIVE · AUTO PREVIEW PAUSED · MEMORY CAUTION';$('#engineState').textContent='AUTO PREVIEW PAUSED · MEMORY CAUTION · USE RENDER FINAL WHEN READY';return false}
 
 function playMix(){
   if(state.playing){stopAudio();resetTransport();return false}const tracks=eligible();if(!tracks.length)return false;const ctx=ensureAudio();if(ctx.state==='suspended')ctx.resume();const base=ctx.currentTime+.04;state.sources=[];let last=null,lastEnd=-1;
@@ -40,7 +42,7 @@ function playMix(){
 
 function alignIndex(track){return Number.isInteger(track.alignMarker)&&track.markers[track.alignMarker]?track.alignMarker:firstDownbeatIndex(track)}
 async function auditionMix(seconds=12){
-  if(state.rendering)return false;if(state.dirty&&!state.previewCurrent)await makeAudioPreviewCurrent({immediate:true});if(state.dirty&&!state.previewCurrent){$('#engineState').textContent='AUDITION WAITING FOR AUDIO PREVIEW';return false}const a=state.tracks[0];if(!a.buffer||!a.markers.length)return false;const tracks=eligible();if(!tracks.length)return false;const ai=alignIndex(a),center=(a.renderedOffset??a.timelineOffset??0)+(a.markers[ai]?.targetTime||0),start=Math.max(0,center-4),end=start+seconds;stopAudio();const ctx=ensureAudio();if(ctx.state==='suspended')ctx.resume();const base=ctx.currentTime+.04;state.sources=[];let last=null,lastEnd=-1;
+  if(state.rendering)return false;if(state.dirty&&!state.previewCurrent)await makeAudioPreviewCurrent({immediate:true});if(state.dirty&&!state.previewCurrent){$('#engineState').textContent='AUDITION WAITING FOR AUDIO PREVIEW OR FINAL RENDER';return false}const a=state.tracks[0];if(!a.buffer||!a.markers.length)return false;const tracks=eligible();if(!tracks.length)return false;const ai=alignIndex(a),center=(a.renderedOffset??a.timelineOffset??0)+(a.markers[ai]?.targetTime||0),start=Math.max(0,center-4),end=start+seconds;stopAudio();const ctx=ensureAudio();if(ctx.state==='suspended')ctx.resume();const base=ctx.currentTime+.04;state.sources=[];let last=null,lastEnd=-1;
   for(const t of tracks)for(const part of playbackParts(t)){const buffer=part.buffer,offset=part.offset,w=projectPlaybackWindow(offset,buffer.duration,start,end,t.trimIn||0,t.trimOut==null?buffer.duration:t.trimOut);if(!w)continue;const src=ctx.createBufferSource(),gain=ctx.createGain(),baseGain=.82*dbToGain(t.gainDb)*part.gain/Math.sqrt(Math.max(1,tracks.length));src.buffer=buffer;applyGainEnvelope(gain.gain,baseGain,fadeItem(t,offset),w.projectStart,w.projectEnd,base+w.delay);src.connect(gain).connect(ctx.destination);src.start(base+w.delay,w.sourceOffset,w.duration);state.sources.push(src);if(w.delay+w.duration>lastEnd){lastEnd=w.delay+w.duration;last=src}}
   if(!state.sources.length)return false;state.playing=true;$('#auditionAlign').textContent='■ STOP AUDITION';$('#engineState').textContent=`AUDITION · ${start.toFixed(2)}s → ${end.toFixed(2)}s${state.dirty?' · PREVIEW':''}`;if(last)last.onended=()=>{if(state.playing){stopAudio();resetTransport();$('#engineState').textContent='AUDITION COMPLETE'}};return true
 }
@@ -54,6 +56,7 @@ export async function makeAudioPreviewCurrent({immediate=false}={}){
   const loaded=state.tracks.filter(t=>t.buffer);if(!loaded.length)return false;
   const needs=loaded.filter(t=>!stemSourcesHaveCurrentAudio(t));
   if(!needs.length){markPreviewCurrent();$('#engineState').textContent='AUDIO PREVIEW CURRENT · REUSED EXISTING AUDIO · FINAL RENDER AVAILABLE';return true}
+  if(!previewMemorySafe())return false;
   const token=++previewToken;markPreviewRendering();$('#engineState').textContent=`AUDIO PREVIEW · ${PREVIEW_QUALITY.toUpperCase()}${immediate?' · PRIORITY':''}`;
   previewPromise=(async()=>{
     try{
@@ -73,7 +76,7 @@ export async function makeAudioPreviewCurrent({immediate=false}={}){
 }
 
 function queueAudioPreview(){
-  syncCheapPlacement();clearPreviewTimer();if(!state.dirty||state.rendering)return;if(state.previewRendering){previewToken++;cancelActiveRender()}
+  syncCheapPlacement();clearPreviewTimer();if(!state.dirty||state.rendering)return;if(state.previewRendering){previewToken++;cancelActiveRender();state.previewRendering=false}
   const revision=state.dirtyRevision;previewTimer=setTimeout(()=>{previewTimer=0;if(state.dirty&&revision===state.dirtyRevision&&!state.rendering)makeAudioPreviewCurrent()},PREVIEW_DELAY_MS);
 }
 
