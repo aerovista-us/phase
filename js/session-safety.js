@@ -5,7 +5,7 @@ export const SESSION_STORE='echoverse.phase.session.v5';
 export function hasSessionContent(projectState=state){return(projectState?.tracks||[]).some(t=>t?.file||t?.fileName||t?.buffer)}
 export function persistSession(projectState=state,storage=globalThis.localStorage){
   if(!hasSessionContent(projectState)||!storage?.setItem)return false;
-  try{storage.setItem(SESSION_STORE,JSON.stringify(snapshotProject(projectState)));return true}catch{return false}
+  try{storage.setItem(SESSION_STORE,JSON.stringify(snapshotProject(projectState)));if(typeof window!=='undefined')window.dispatchEvent(new CustomEvent('phase:session-saved'));return true}catch{return false}
 }
 export function installSessionSafety(win=globalThis.window,doc=globalThis.document){
   if(!win?.addEventListener||!doc?.addEventListener||win.__phaseSessionSafetyInstalled)return false;
