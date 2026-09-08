@@ -6,7 +6,7 @@ async function boot(page,{width=1440,height=900}={}){
   await page.setViewportSize({width,height});
   const errors=[];page.on('pageerror',err=>errors.push(String(err?.stack||err)));
   await page.goto(base+'/',{waitUntil:'networkidle'});
-  await expect(page.locator('.brand .tag')).toContainText('0.12.8');
+  await expect(page.locator('.brand .tag')).toContainText('0.13.0');
   await expect(page.locator('#engineState')).toBeVisible();
   await expect(page.locator('#demoProject')).toBeVisible({timeout:5000});
   return errors;
@@ -33,8 +33,8 @@ async function waitForServiceWorkerControl(page){
   });
 }
 
-test('Phase boots and completes the core demo mashup workflow',async({page})=>{
-  test.setTimeout(45000);const errors=await boot(page);await expectContained(page);
+test('Phase auto-previews edits and still supports explicit final rendering',async({page})=>{
+  test.setTimeout(55000);const errors=await boot(page);await expectContained(page);
   await page.locator('#demoProject').click();
   await expect(page.locator('#engineState')).toContainText('DEMO READY',{timeout:15000});
   await expect(page.locator('#sub-0')).not.toContainText('No audio loaded');
@@ -43,10 +43,14 @@ test('Phase boots and completes the core demo mashup workflow',async({page})=>{
   await expect(page.locator('#engineState')).toContainText('ANALYSIS READY',{timeout:15000});
   await page.locator('#alignB').click();
   await expect(page.locator('#engineState')).toContainText('ALIGNED',{timeout:7000});
-  await expect(page.locator('#renderState')).toContainText('VISUAL CHANGES PENDING');
+  await expect(page.locator('#renderState')).toContainText('AUDIO PREVIEW',{timeout:3000});
+  await expect(page.locator('#renderState')).toContainText('AUDIO PREVIEW CURRENT',{timeout:20000});
+  await expect(page.locator('#render')).toContainText('RENDER FINAL');
+  await page.locator('#play').click();
+  await expect(page.locator('#engineState')).toContainText('PREVIEW',{timeout:4000});
+  await page.waitForTimeout(250);await page.locator('#stop').click();
   await page.locator('#render').click();
   await expect(page.locator('#renderState')).toContainText('AUDIO CURRENT',{timeout:20000});
-  await page.locator('#play').click();await page.waitForTimeout(250);await page.locator('#stop').click();
   await page.locator('#helpPanel').click();await expect(page.locator('#helpDrawer')).toHaveClass(/open/);await expect(page.locator('#helpDrawer')).toBeVisible();await page.locator('#helpClose').click();
   await page.locator('#diagPanel').click();await expect(page.locator('#diagDrawer')).toHaveClass(/open/);await expect(page.locator('#diagBody')).toContainText('PWA / STORAGE');await page.locator('#diagClose').click();
   await page.locator('#stemsPanel').click();await expect(page.locator('#stemDrawer')).toHaveClass(/open/);await expect(page.locator('#stemSeparate')).toBeVisible();await page.locator('#stemClose').click();
@@ -61,7 +65,7 @@ test('Phase lifecycle saves the session and the PWA relaunches offline',async({p
   expect(saved?.version).toBe(12);expect(saved?.tracks?.[0]?.fileName).toBe('phase-demo-a.wav');expect(saved?.tracks?.[1]?.fileName).toBe('phase-demo-b.wav');expect(saved?.savedAt).toBeTruthy();
   await context.setOffline(true);
   await page.reload({waitUntil:'domcontentloaded',timeout:15000});
-  await expect(page.locator('.brand .tag')).toContainText('0.12.8');await expect(page.locator('#demoProject')).toBeVisible({timeout:7000});
+  await expect(page.locator('.brand .tag')).toContainText('0.13.0');await expect(page.locator('#demoProject')).toBeVisible({timeout:7000});
   await page.goto(base+'/recovery.html',{waitUntil:'domcontentloaded',timeout:15000});
   await expect(page.locator('h1')).toHaveText('PHASE RECOVERY');await expect(page.locator('#saved')).toHaveText('YES');await expect(page.locator('#mapVersion')).toHaveText('12');
   await context.setOffline(false);expect(errors,errors.join('\n')).toEqual([]);
@@ -73,7 +77,7 @@ test('standalone recovery route loads without workstation modules',async({page})
   const errors=[];page.on('pageerror',err=>errors.push(String(err?.stack||err)));
   await page.goto(base+'/recovery.html',{waitUntil:'networkidle'});
   await expect(page.locator('h1')).toHaveText('PHASE RECOVERY');
-  await expect(page.locator('#liveVersion')).toHaveText('0.12.8');
+  await expect(page.locator('#liveVersion')).toHaveText('0.13.0');
   await expect(page.locator('#liveValidated')).toHaveText('YES');
   await expect(page.locator('#report')).toBeVisible();
   expect(errors,errors.join('\n')).toEqual([]);
