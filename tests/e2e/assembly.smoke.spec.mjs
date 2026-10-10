@@ -59,4 +59,5 @@ test('Master Assembly layout remains reachable on phone',async({page})=>{
  await page.locator('a[href="./assembly.html"]').click();
  await expect(page.getByRole('heading',{name:'Final arrangement'})).toBeVisible();
  await expect(page.locator('#sources')).toBeVisible();
+ await expect(page.locator('#clip-editor')).toBeHidden();
 });
