@@ -1,0 +1,199 @@
+import{newClip,clipDuration,clipEnd,projectDuration,insertClip,splitClip,removeClip,moveClip,updateFade,saveAssembly,restoreAssembly,quantize}from'./assembly-model.js';
+import{buildWavePyramid,drawWave,drawRawSamples}from'./assembly-waveform.js';
+import{renderMix,downloadWav}from'./export.js';
+import{applyGainEnvelope}from'./fade-model.js';
+
+const $=id=>document.getElementById(id);
+const fmt=s=>{const n=Math.max(0,s||0);return Math.floor(n/60)+':'+(n%60).toFixed(2).padStart(5,'0')};
+let sources=[],clips=[],selectedId=null,clipboard=null,undoStack=[],zoom=8,ctx=null,live=[],sourcePlayer=new Audio(),currentSource=null,stopAt=Infinity,busy=false,previewUrl=null;
+const sourceById=id=>sources.find(s=>s.id===id);
+const selected=()=>clips.find(c=>c.id===selectedId);
+const status=(message,error=false)=>{$('notice').textContent=message;$('notice').classList.toggle('error',error)};
+const genId=()=>crypto.randomUUID?.()||Math.random().toString(36).slice(2);
+const snapshot=()=>{undoStack.push(clips.map(c=>({...c})));if(undoStack.length>60)undoStack.shift()};
+const aud=()=>ctx||(ctx=new(window.AudioContext||window.webkitAudioContext)());
+function stop(){
+ sourcePlayer.pause();
+ if(previewUrl){sourcePlayer.removeAttribute('src');sourcePlayer.load();URL.revokeObjectURL(previewUrl);previewUrl=null;}
+ live.forEach(s=>{try{s.stop()}catch{}});live=[];
+ for(const s of sources)s.buffer=null;
+ $('play-master').textContent='▶ PLAY MASTER';
+}
+sourcePlayer.ontimeupdate=()=>{if(sourcePlayer.currentTime>=stopAt){sourcePlayer.pause();sourcePlayer.currentTime=Math.max(0,stopAt)}};
+function updateRange(s){const card=document.querySelector('[data-source="'+s.id+'"]');if(!card)return;
+ card.querySelector('.source-range').style.left=(s.inSec/s.duration*100)+'%';
+ card.querySelector('.source-range').style.width=((s.outSec-s.inSec)/s.duration*100)+'%';
+ card.querySelector('.range-in').value=s.inSec.toFixed(6);card.querySelector('.range-out').value=s.outSec.toFixed(6);}
+async function indexSource(s,file){
+ const context=aud();const estimated=file.size*12;
+ if(estimated>400*1024*1024&&!confirm('This file may require considerable temporary decode memory. Index it anyway?'))return;
+ status('Indexing '+file.name+' · building detailed min/max waveforms…');
+ const buffer=await context.decodeAudioData(await file.arrayBuffer());
+ s.file=file;s.name=file.name;s.duration=buffer.duration;s.sampleRate=buffer.sampleRate;
+ s.pyramid=buildWavePyramid(buffer);s.inSec=0;s.outSec=Math.min(s.duration,15);s.ready=true;
+ // Only the compact peak pyramid and original File persist: decoded PCM is temporary until playback/export.
+ updateUI();status('Indexed '+file.name+' ('+fmt(s.duration)+'). Original file retained; decoded preview released.');
+}
+async function addFiles(fileList){
+ for(const file of fileList){if(!file.type.startsWith('audio/')&&!/\.(mp3|wav|m4a|flac|ogg)$/i.test(file.name)){status('Unsupported audio type: '+file.name,true);continue;}
+ let s=sources.find(x=>!x.file&&x.name===file.name&&(!x.size||x.size===file.size));
+ if(!s){s={id:genId(),name:file.name,size:file.size,inSec:0,outSec:0,ready:false};sources.push(s)}
+ try{await indexSource(s,file)}catch(err){status('Unable to decode '+file.name+': '+err.message,true);sources=sources.filter(x=>x!==s||x.ready);}
+ }updateUI();
+}
+function renderSourceCards(){
+ const root=$('sources');root.replaceChildren();
+ if(!sources.length){root.innerHTML='<p class="empty">No sources yet. Add local audio files to begin.</p>';return;}
+ for(const s of sources){
+ const card=document.createElement('div');card.className='source-card'+(s.id===currentSource?' active':'');card.dataset.source=s.id;
+ card.innerHTML='<div><div class="source-name"></div><div class="source-status"></div></div><div class="source-wave" title="Click to set IN; Shift-click to set OUT"><canvas></canvas><div class="source-range"></div></div><div class="source-actions"><label>IN <input class="range-in" type="number" min="0" step="0.001"></label><label>OUT <input class="range-out" type="number" min="0" step="0.001"></label><button class="audition">▶ SOLO</button><button class="add">↑ APPEND</button><button class="insert">INSERT @ PLAYHEAD</button></div>';
+ card.querySelector('.source-name').textContent=s.name;
+ card.querySelector('.source-status').textContent=s.ready?fmt(s.duration)+' · '+s.sampleRate+' Hz · indexed':'RELINK AUDIO REQUIRED';
+ root.append(card);
+ if(!s.ready){card.querySelectorAll('button,input').forEach(x=>x.disabled=true);continue}
+ const canvas=card.querySelector('canvas');
+ drawWave(canvas,s.pyramid,0,s.duration,{stroke:'#73c2dd'});
+ updateRange(s);
+ const change=()=>{const a=Number(card.querySelector('.range-in').value),b=Number(card.querySelector('.range-out').value);
+   if(!Number.isFinite(a)||!Number.isFinite(b)||a<0||b>s.duration||a>=b){status('OUT must be after IN and inside the file.',true);updateRange(s);return}
+   s.inSec=quantize(a,s.sampleRate);s.outSec=quantize(b,s.sampleRate);updateRange(s)};
+ card.querySelectorAll('input').forEach(el=>el.addEventListener('change',change));
+ canvas.addEventListener('click',e=>{
+   const r=canvas.getBoundingClientRect(),time=quantize(Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))*s.duration,s.sampleRate);
+   if(e.shiftKey)s.outSec=Math.max(s.inSec+1/s.sampleRate,time);else s.inSec=Math.min(time,s.outSec-1/s.sampleRate);
+   updateRange(s);
+ });
+ card.querySelector('.audition').onclick=async()=>{stop();
+   previewUrl=URL.createObjectURL(s.file);sourcePlayer.src=previewUrl;sourcePlayer.currentTime=s.inSec;stopAt=s.outSec;currentSource=s.id;updateUI();try{await sourcePlayer.play();status('Solo audition · '+s.name)}catch(err){status('Preview unavailable: '+err.message,true)}};
+ card.querySelector('.add').onclick=()=>{snapshot();const c=newClip(s,s.inSec,s.outSec,projectDuration(clips));clips=insertClip(clips,c,c.masterStart);selectedId=c.id;updateUI();status('Added '+s.name+' to master. Drag, trim, or split the clip.')};
+ card.querySelector('.insert').onclick=()=>{snapshot();const at=Number($('playhead').value)||0;const c=newClip(s,s.inSec,s.outSec,at);clips=insertClip(clips,c,at,true);selectedId=c.id;updateUI();status('Inserted at playhead, splitting occupied clips and shifting later audio.')};
+ }
+}
+function drawMaster(){
+ const lane=$('master-lane'),ruler=$('master-ruler');lane.replaceChildren();ruler.replaceChildren();
+ const total=Math.max(60,projectDuration(clips)+8);const width=Math.max(lane.parentElement.clientWidth,Math.ceil(total*zoom));
+ const endTimes=[];const rows=new Map();
+ for(const c of [...clips].sort((a,b)=>a.masterStart-b.masterStart)){
+   let layer=endTimes.findIndex(end=>end<=c.masterStart+.000001);
+   if(layer<0){layer=endTimes.length;endTimes.push(0)}
+   endTimes[layer]=clipEnd(c);rows.set(c.id,layer);
+ }
+ lane.style.height=(154+Math.max(0,endTimes.length-1)*128)+'px';
+ lane.style.width=width+'px';ruler.style.width=width+'px';
+ const step=zoom>=18?5:zoom>=8?10:20;
+ for(let t=0;t<=width/zoom;t+=step){const tick=document.createElement('div');tick.className='tick';tick.style.left=t*zoom+'px';tick.textContent=fmt(t);ruler.append(tick)}
+ ruler.onclick=e=>{$('playhead').value=quantize((e.clientX-ruler.getBoundingClientRect().left)/zoom).toFixed(6);drawInspector()};
+ for(const c of clips){const s=sourceById(c.sourceId),el=document.createElement('div');el.className='master-clip'+(c.id===selectedId?' selected':'');
+   el.style.left=c.masterStart*zoom+'px';el.style.top=(16+(rows.get(c.id)||0)*128)+'px';el.style.width=Math.max(3,clipDuration(c)*zoom)+'px';el.tabIndex=0;el.setAttribute('role','button');el.setAttribute('aria-label','Select '+(s?.name||'clip')+' at '+fmt(c.masterStart));
+   const wave=document.createElement('canvas'),label=document.createElement('span');label.textContent=(s?.name||'Missing audio')+' · '+fmt(c.sourceIn);
+   el.append(wave,label);lane.append(el);
+   if(s?.pyramid)drawWave(wave,s.pyramid,c.sourceIn,c.sourceOut,{stroke:'#8addf6'});
+   el.onclick=()=>{selectedId=c.id;updateUI()};
+   el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectedId=c.id;updateUI()}};
+   el.onpointerdown=e=>{if(e.button!==0)return;const origin=e.clientX,base=c.masterStart;
+      el.setPointerCapture(e.pointerId);
+      el.onpointerup=up=>{el.onpointerup=null;const dx=up.clientX-origin;if(Math.abs(dx)>5){snapshot();clips=moveClip(clips,c.id,Math.max(0,base+dx/zoom));selectedId=c.id;updateUI()}};
+   };
+ }
+}
+function editPanel(){
+ const c=selected();$('clip-editor').hidden=!c;
+ if(!c)return;
+ const s=sourceById(c.sourceId);$('clip-name').textContent=(s?.name||'Missing source')+' · '+fmt(clipDuration(c));
+ $('clip-start').value=c.masterStart.toFixed(6);$('fade-in').value=Math.round(c.fadeInSec*1000);$('fade-out').value=Math.round(c.fadeOutSec*1000);
+}
+function drawInspector(){
+ const c=selected(),l=$('join-left'),r=$('join-right');
+ const clear=canvas=>{const rect=canvas.getBoundingClientRect();canvas.width=rect.width*devicePixelRatio;canvas.height=rect.height*devicePixelRatio;canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height)};
+ if(!c){clear(l);clear(r);$('join-message').textContent='Select a master clip to inspect its exit and the next clip entrance.';return}
+ const ordered=[...clips].sort((a,b)=>a.masterStart-b.masterStart),i=ordered.findIndex(x=>x.id===c.id),next=ordered[i+1];
+ const a=sourceById(c.sourceId),b=next&&sourceById(next.sourceId);
+ if(a?.pyramid)drawWave(l,a.pyramid,Math.max(c.sourceIn,c.sourceOut-.22),c.sourceOut,{stroke:'#75bde9'});else clear(l);
+ if(b?.pyramid)drawWave(r,b.pyramid,next.sourceIn,Math.min(next.sourceOut,next.sourceIn+.22),{stroke:'#c79bf0'});else clear(r);
+ $('join-message').textContent=next?('Join '+fmt(clipEnd(c))+' → '+fmt(next.masterStart)+' · gap/overlap '+(next.masterStart-clipEnd(c)).toFixed(3)+' s; min/max peaks near boundaries.'): 'No next clip. Add one to compare incoming audio.';
+}
+function updateUI(){renderSourceCards();drawMaster();editPanel();drawInspector()}
+async function bufferFor(s){if(!s?.file)throw Error('Relink missing audio source: '+(s?.name||'unknown'));
+  if(!s.buffer)s.buffer=await aud().decodeAudioData(await s.file.arrayBuffer());
+  return s.buffer;
+}
+async function withBuffers(){const used=[...new Set(clips.map(c=>c.sourceId))];
+ const sum=used.reduce((a,id)=>{const s=sourceById(id);return a+(s?.duration||0)*(s?.sampleRate||48000)*8},0);
+ if(sum>450*1024*1024)throw Error('Source decode estimate exceeds 450 MB. Reduce loaded sources or make shorter assemblies.');
+ for(const id of used)await bufferFor(sourceById(id));
+}
+const items=()=>clips.map(c=>({buffer:sourceById(c.sourceId).buffer,offset:c.masterStart-c.sourceIn,sourceIn:c.sourceIn,sourceOut:c.sourceOut,gain:Math.pow(10,c.gainDb/20),group:'master',fadeInStart:c.sourceIn,fadeInEnd:c.sourceIn+c.fadeInSec,fadeOutStart:c.sourceOut-c.fadeOutSec,fadeOutEnd:c.sourceOut}));
+async function playMaster(time=null,windowEnd=null){
+ stop();if(!clips.length){status('Add clips to master first.',true);return}
+ const t=Math.max(0,time??(Number($('playhead').value)||0));const context=aud();await context.resume();
+ try{busy=true;status('Preparing original-quality audio…');await withBuffers();
+   const base=context.currentTime+.06;
+   const list=clips.filter(c=>clipEnd(c)>t&&c.masterStart<(windowEnd??Infinity));
+   let last=null,latest=-1;
+   for(const c of list){const s=sourceById(c.sourceId),start=Math.max(t,c.masterStart),end=Math.min(clipEnd(c),windowEnd??Infinity);
+     if(end<=start)continue;const b=context.createBufferSource(),g=context.createGain();
+     b.buffer=s.buffer;b.connect(g).connect(context.destination);
+     const w={offset:c.masterStart-c.sourceIn,fadeInStart:c.sourceIn,fadeInEnd:c.sourceIn+c.fadeInSec,fadeOutStart:c.sourceOut-c.fadeOutSec,fadeOutEnd:c.sourceOut};
+     applyGainEnvelope(g.gain,.88*Math.pow(10,c.gainDb/20),w,start,end,base+start-t);
+     b.start(base+start-t,c.sourceIn+start-c.masterStart,end-start);live.push(b);if(end>latest){latest=end;last=b}
+   }
+   if(!live.length){status('Move playhead into an occupied region.',true);return}
+   if(last)last.onended=()=>{live=[];for(const s of sources)s.buffer=null;$('play-master').textContent='▶ PLAY MASTER'};
+   $('play-master').textContent='■ STOP MASTER';status('Playing original-quality master from '+fmt(t));
+ }catch(err){status(err.message,true)}
+ finally{busy=false}
+}
+async function exportMaster(){
+ if(busy)return;if(!clips.length){status('No master clips to export.',true);return}
+ const seconds=projectDuration(clips);
+ const rate=Math.max(44100,...clips.map(c=>sourceById(c.sourceId)?.sampleRate||44100));
+ const outBytes=seconds*rate*2*6;
+ if(outBytes>440*1024*1024){status('Master render may exceed safe memory budget. Shorten assembly or render in sections.',true);return}
+ try{busy=true;status('Rendering master from original-quality audio…');await withBuffers();const buf=await renderMix(items(),rate);
+   downloadWav(buf,'phase-master-assembly.wav');status('Master WAV exported · '+fmt(buf.duration)+' at '+rate+' Hz, PCM 16-bit.')}
+ catch(err){status('Export failed: '+err.message,true)}finally{busy=false;for(const s of sources)s.buffer=null}
+}
+$('source-files').onchange=e=>addFiles([...e.target.files]);
+$('play-master').onclick=()=>{if(live.length){stop();status('Playback stopped.')}else playMaster()};
+$('stop-master').onclick=()=>{stop();status('Stopped.')};
+$('export-master').onclick=exportMaster;
+$('zoom').oninput=e=>{zoom=Number(e.target.value);$('zoom-value').textContent=zoom+' px/s';drawMaster()};
+$('clip-start').onchange=e=>{const c=selected();if(!c)return;snapshot();clips=moveClip(clips,c.id,Number(e.target.value));updateUI()};
+function setFade(){const c=selected();if(!c)return;snapshot();clips=updateFade(clips,c.id,Number($('fade-in').value)/1000,Number($('fade-out').value)/1000);updateUI()}
+$('fade-in').onchange=setFade;$('fade-out').onchange=setFade;
+$('copy-clip').onclick=()=>{const c=selected();if(c){clipboard={...c};status('Copied selection. Place playhead, then Paste / Insert.')}};
+$('paste-clip').onclick=()=>{if(!clipboard){status('Copy a master clip first.',true);return}snapshot();const c={...clipboard,id:genId()};clips=insertClip(clips,c,Number($('playhead').value)||0,true);selectedId=c.id;updateUI();status('Inserted copied clip; later clips shifted forward.')};
+$('split-clip').onclick=()=>{const c=selected();if(!c)return;try{snapshot();clips=splitClip(clips,c.id,Number($('playhead').value));updateUI();status('Split selected clip at playhead.')}catch(err){undoStack.pop();status(err.message,true)}};
+$('remove-clip').onclick=()=>{if(!selected())return;snapshot();clips=removeClip(clips,selectedId);selectedId=clips[0]?.id||null;updateUI()};
+$('undo').onclick=()=>{if(undoStack.length){clips=undoStack.pop();selectedId=clips.some(c=>c.id===selectedId)?selectedId:null;updateUI();status('Undid previous clip edit.')}};
+$('preview-join').onclick=$('join-play').onclick=()=>{const c=selected();if(c)playMaster(Math.max(0,clipEnd(c)-1),clipEnd(c)+2)};
+$('sample-view').onclick=async()=>{
+ const c=selected();if(!c)return status('Select a clip first.',true);
+ const list=[...clips].sort((a,b)=>a.masterStart-b.masterStart),next=list[list.findIndex(x=>x.id===c.id)+1];
+ try{
+   const refs=[sourceById(c.sourceId),next&&sourceById(next.sourceId)].filter(Boolean);
+   for(const s of refs){
+     if(s.duration*s.sampleRate*8>240*1024*1024)throw Error('Source exceeds sample-inspector memory limit.');
+     await bufferFor(s);
+   }
+   const span=Number($('sample-span').value);
+   drawRawSamples($('join-left'),sourceById(c.sourceId).buffer,Math.max(c.sourceIn,c.sourceOut-span),c.sourceOut,'#75bde9');
+   if(next)drawRawSamples($('join-right'),sourceById(next.sourceId).buffer,next.sourceIn,Math.min(next.sourceOut,next.sourceIn+span),'#c79bf0');
+   $('join-message').textContent='Native samples loaded, '+Math.round(span*1000)+' ms window. Clip timing is stored against original samples. Use IN/OUT and START values for precision edits.';
+   status('Sample-detail inspector uses original decoded audio. Master sources stay immutable.');
+ }catch(err){status('Sample view: '+err.message,true)}
+};
+$('save-project').onclick=()=>{const obj=saveAssembly(sources,clips);const url=URL.createObjectURL(new Blob([JSON.stringify(obj,null,2)],{type:'application/json'}));
+ const a=document.createElement('a');a.href=url;a.download='phase-assembly.phase.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);status('Project map saved. Store original audio files beside the map.')};
+$('load-project').onclick=()=>$('project-file').click();
+$('project-file').onchange=async e=>{try{const p=restoreAssembly(JSON.parse(await e.target.files[0].text()));stop();
+  sources=p.sources.map(x=>({...x,ready:false,file:null,pyramid:null,inSec:0,outSec:x.duration||0}));clips=p.clips;selectedId=clips[0]?.id||null;undoStack=[];updateUI();
+  status('Map opened. Use Add Source(s) to relink files by exact name and size before playback/export.');}
+ catch(err){status('Map import failed: '+err.message,true)}};
+document.body.addEventListener('dragover',e=>e.preventDefault());
+document.body.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer?.files?.length)addFiles([...e.dataTransfer.files])});
+document.addEventListener('keydown',e=>{if(/INPUT|TEXTAREA/.test(e.target?.tagName||''))return;
+ if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();$('undo').click()}
+ if(e.key===' '){e.preventDefault();$('play-master').click()}
+});
+updateUI();

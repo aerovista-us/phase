@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Phase — Master Assembly | EchoVerse</title>
+<link rel="icon" href="./icons/phase.svg" type="image/svg+xml">
+<link rel="stylesheet" href="./assembly.css">
+<meta name="theme-color" content="#101721">
+</head><body>
+<header class="toolbar">
+ <a class="brand" href="./">ECHOVERSE <strong>PHASE</strong></a>
+ <nav aria-label="Phase workflows"><a href="./">MIX &amp; SYNC</a><a class="active" aria-current="page" href="./assembly.html">MASTER ASSEMBLY</a></nav>
+ <div class="toolbar-actions"><button id="load-project">OPEN MAP</button><button id="save-project">SAVE MAP</button></div>
+</header>
+<main>
+<section class="hero"><div><div class="eyebrow">MASTER ASSEMBLY / PREVIEW ALPHA</div><h1>Build a track from the parts worth keeping.</h1><p>Original files stay untouched. Assemble clips at the top; audition compact source decks below.</p></div>
+ <div class="action"><label class="file-button">+ ADD SOURCE(S)<input id="source-files" type="file" accept="audio/*,.mp3,.wav,.m4a,.flac,.ogg" multiple hidden></label></div>
+</section>
+<div id="notice" role="status" aria-live="polite">Drop an audio file or choose Add Sources to begin.</div>
+<section class="master panel" aria-label="Master arrangement">
+ <div class="section-heading"><div><span class="eyebrow">01 / MASTER TIMELINE</span><h2>Final arrangement</h2></div>
+ <div class="actions"><button id="play-master">▶ PLAY MASTER</button><button id="stop-master">■ STOP</button><button id="export-master">EXPORT WAV</button></div></div>
+ <div class="controls">
+ <label>ZOOM <input id="zoom" type="range" min="3" max="40" value="8"><span id="zoom-value">8 px/s</span></label>
+ <label>PLAYHEAD (s) <input id="playhead" type="number" min="0" step="0.01" value="0"></label>
+ <button id="paste-clip" title="Insert copied clip at playhead">PASTE / INSERT</button><button id="split-clip">SPLIT</button><button id="remove-clip">DELETE</button><button id="undo">UNDO</button>
+ </div>
+ <div id="master-scroll" class="scroll"><div id="master-lane" aria-label="Master clips, click to select and drag to move"></div><div id="master-ruler"></div></div>
+ <p class="hint">Select a clip to edit. Click the ruler to place the playhead. Drag a master clip to move it; use Split for sample-indexed divisions. Clips can overlap to create transitions.</p>
+ <div id="clip-editor" class="clip-editor" hidden>
+  <strong id="clip-name">Selected clip</strong><label>START (s)<input id="clip-start" type="number" step="any" min="0"></label>
+  <label>FADE IN (ms)<input id="fade-in" type="number" min="0" max="5000" step="1"></label>
+  <label>FADE OUT (ms)<input id="fade-out" type="number" min="0" max="5000" step="1"></label>
+  <button id="copy-clip">COPY</button><button id="preview-join">AUDITION JOIN</button>
+ </div>
+</section>
+<section class="panel sources-panel" aria-label="Source decks">
+ <div class="section-heading"><div><span class="eyebrow">02 / SOURCE LIBRARY</span><h2>Find your next cut</h2></div>
+ <span class="hint">Waveform min/max peaks are preserved. Clicking marks IN; Shift-click marks OUT.</span></div>
+ <div id="sources" class="source-list"><p class="empty">No sources loaded. Files stay on your device.</p></div>
+</section>
+<section class="panel inspector" aria-label="Splice Inspector">
+ <div class="section-heading"><div><span class="eyebrow">03 / SPLICE INSPECTOR</span><h2>Inspect the join</h2></div><div class="actions"><label for="sample-span" class="hint">DETAIL WINDOW</label><select id="sample-span"><option value="0.01">10 ms</option><option value="0.05" selected>50 ms</option><option value="0.2">200 ms</option></select><button id="sample-view">LOAD SAMPLE DETAIL</button><button id="join-play">▶ AUDITION</button></div></div>
+ <div class="join-rows"><div><label>OUTGOING</label><canvas id="join-left"></canvas></div><div><label>INCOMING</label><canvas id="join-right"></canvas></div></div>
+ <p id="join-message" class="hint">Choose a clip on the master timeline. Neighboring clip ends and starts are shown side by side.</p>
+</section>
+<section class="footer-note"><p><strong>Quality boundary:</strong> Waveforms use a multiresolution min/max peak index; preview playback streams the file. Indexing initially decodes the whole file temporarily. Final output re-decodes the original file and exports uncompressed 16-bit PCM WAV, with a resource check for large jobs. This first build is not a streaming partial decoder or a mastering limiter.</p></section>
+</main>
+<input id="project-file" type="file" accept=".json,application/json" hidden>
+<script type="module" src="./js/assembly-app.js"></script>
+</body></html>

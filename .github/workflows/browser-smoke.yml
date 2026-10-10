@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'index.html'
+      - 'assembly.html'
+      - 'assembly.css'
       - 'recovery.html'
       - 'styles.css'
       - 'ui-polish.css'
@@ -13,6 +15,7 @@ on:
       - 'tests/e2e/**'
       - 'playwright.config.mjs'
       - '.github/workflows/browser-smoke.yml'
+  pull_request:
   workflow_dispatch:
 
 permissions:

@@ -41,7 +41,7 @@ jobs:
       - name: Build static Phase bundle
         run: |
           mkdir -p _site
-          cp index.html recovery.html styles.css ui-polish.css manifest.webmanifest sw.js _site/
+          cp index.html recovery.html assembly.html assembly.css styles.css ui-polish.css manifest.webmanifest sw.js _site/
           cp -R icons js _site/
           if [ -f CNAME ]; then cp CNAME _site/CNAME; fi
           VERSION=$(grep -oE 'ALPHA [0-9]+\.[0-9]+\.[0-9]+' index.html | head -1 | awk '{print $2}')
