@@ -5,7 +5,7 @@ import{applyGainEnvelope}from'./fade-model.js';
 
 const $=id=>document.getElementById(id);
 const fmt=s=>{const n=Math.max(0,s||0);return Math.floor(n/60)+':'+(n%60).toFixed(2).padStart(5,'0')};
-let sources=[],clips=[],selectedId=null,clipboard=null,undoStack=[],zoom=8,ctx=null,live=[],sourcePlayer=new Audio(),currentSource=null,stopAt=Infinity,busy=false,previewUrl=null;
+let sources=[],clips=[],selectedId=null,clipboard=null,undoStack=[],zoom=8,autoFit=true,ctx=null,live=[],sourcePlayer=new Audio(),currentSource=null,stopAt=Infinity,busy=false,previewUrl=null;
 const sourceById=id=>sources.find(s=>s.id===id);
 const selected=()=>clips.find(c=>c.id===selectedId);
 const status=(message,error=false)=>{$('notice').textContent=message;$('notice').classList.toggle('error',error)};
@@ -71,7 +71,7 @@ function renderSourceCards(){
 }
 function drawMaster(){
  const lane=$('master-lane'),ruler=$('master-ruler');lane.replaceChildren();ruler.replaceChildren();
- const total=Math.max(60,projectDuration(clips)+8);const width=Math.max(lane.parentElement.clientWidth,Math.ceil(total*zoom));
+ const total=clips.length?Math.max(8,projectDuration(clips)+2):60;const width=Math.max(lane.parentElement.clientWidth,Math.ceil(total*zoom));
  const endTimes=[];const rows=new Map();
  for(const c of [...clips].sort((a,b)=>a.masterStart-b.masterStart)){
    let layer=endTimes.findIndex(end=>end<=c.masterStart+.000001);
@@ -80,7 +80,7 @@ function drawMaster(){
  }
  lane.style.height=(154+Math.max(0,endTimes.length-1)*128)+'px';
  lane.style.width=width+'px';ruler.style.width=width+'px';
- const step=zoom>=18?5:zoom>=8?10:20;
+ const step=zoom>=100?1:zoom>=50?2:zoom>=18?5:zoom>=8?10:20;
  for(let t=0;t<=width/zoom;t+=step){const tick=document.createElement('div');tick.className='tick';tick.style.left=t*zoom+'px';tick.textContent=fmt(t);ruler.append(tick)}
  ruler.onclick=e=>{$('playhead').value=quantize((e.clientX-ruler.getBoundingClientRect().left)/zoom).toFixed(6);drawInspector()};
  for(const c of clips){const s=sourceById(c.sourceId),el=document.createElement('div');el.className='master-clip'+(c.id===selectedId?' selected':'');
@@ -112,7 +112,8 @@ function drawInspector(){
  if(b?.pyramid)drawWave(r,b.pyramid,next.sourceIn,Math.min(next.sourceOut,next.sourceIn+.22),{stroke:'#c79bf0'});else clear(r);
  $('join-message').textContent=next?('Join '+fmt(clipEnd(c))+' → '+fmt(next.masterStart)+' · gap/overlap '+(next.masterStart-clipEnd(c)).toFixed(3)+' s; min/max peaks near boundaries.'): 'No next clip. Add one to compare incoming audio.';
 }
-function updateUI(){renderSourceCards();drawMaster();editPanel();drawInspector()}
+function fitZoom(){const width=Math.max(320,$('master-scroll').clientWidth||950);zoom=Math.round(Math.max(3,Math.min(240,(width-58)/Math.max(4,projectDuration(clips)+2))));$('zoom').value=zoom;$('zoom-value').textContent=zoom+' px/s'}
+function updateUI(){if(autoFit&&clips.length)fitZoom();renderSourceCards();drawMaster();editPanel();drawInspector()}
 async function bufferFor(s){if(!s?.file)throw Error('Relink missing audio source: '+(s?.name||'unknown'));
   if(!s.buffer)s.buffer=await aud().decodeAudioData(await s.file.arrayBuffer());
   return s.buffer;
@@ -157,7 +158,9 @@ $('source-files').onchange=e=>addFiles([...e.target.files]);
 $('play-master').onclick=()=>{if(live.length){stop();status('Playback stopped.')}else playMaster()};
 $('stop-master').onclick=()=>{stop();status('Stopped.')};
 $('export-master').onclick=exportMaster;
-$('zoom').oninput=e=>{zoom=Number(e.target.value);$('zoom-value').textContent=zoom+' px/s';drawMaster()};
+$('zoom').oninput=e=>{autoFit=false;zoom=Number(e.target.value);$('zoom-value').textContent=zoom+' px/s';drawMaster()};
+$('fit-master').onclick=()=>{autoFit=true;fitZoom();drawMaster();status('Fit master waveform to arrangement.')};
+window.addEventListener('resize',()=>{if(autoFit&&clips.length)fitZoom();drawMaster();drawInspector()});
 $('clip-start').onchange=e=>{const c=selected();if(!c)return;snapshot();clips=moveClip(clips,c.id,Number(e.target.value));updateUI()};
 function setFade(){const c=selected();if(!c)return;snapshot();clips=updateFade(clips,c.id,Number($('fade-in').value)/1000,Number($('fade-out').value)/1000);updateUI()}
 $('fade-in').onchange=setFade;$('fade-out').onchange=setFade;

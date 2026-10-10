@@ -25,6 +25,7 @@ test('Master Assembly: import, sample inspect, ripple splice, solo and WAV',asyn
  await page.locator('.source-card .add').first().click();
  await page.locator('.source-card .add').last().click();
  await expect(page.locator('.master-clip')).toHaveCount(2);
+ await expect(page.locator('#zoom-value')).not.toHaveText('8 px/s');
  await page.locator('#playhead').fill('0.8');
  await page.locator('.source-card .insert').first().click();
  await expect(page.locator('.master-clip')).toHaveCount(4);

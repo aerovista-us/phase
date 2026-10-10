@@ -7,7 +7,7 @@ Keep the existing Mix & Sync workstation unchanged at `index.html`. New `assembl
 1. Import files through Add Sources, or drop them on the page. Each file is temporarily decoded to construct multi-resolution **min/max** waveform indices, then only the original File and compact peaks remain.
 2. Preview each source alone using browser media playback. Click a waveform to set IN; Shift-click for OUT, or use the numeric fields (up to six decimals; quantized to source sample rate).
 3. Append selected audio or Insert at Playhead. Insert inside a clip splits it and ripples later clips. Drag clips on the master to move, select to edit fade/start, set the playhead to split, or copy/paste/delete/undo.
-4. Zoom and examine full master waveforms. The splice inspector draws min/max peaks near the cut; **Load Sample Detail** explicitly decodes source PCM for 10/50/200ms views, resolving native samples when zoom permits.
+4. The master auto-fits to the current arrangement by default; use manual Zoom or Fit Master to return to overview. Zoom and examine full master waveforms. The splice inspector draws min/max peaks near the cut; **Load Sample Detail** explicitly decodes source PCM for 10/50/200ms views, resolving native samples when zoom permits.
 5. Play master from playhead. Export WAV through existing `renderMix` and `downloadWav` using the full original decoded audio. No lossy preview audio enters the master export. Output is 16-bit uncompressed stereo PCM.
 6. Save a lightweight assembly project map. After opening a map, relink the original files by matching filename + byte length.
 
