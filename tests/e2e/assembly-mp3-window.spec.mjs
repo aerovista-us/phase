@@ -36,6 +36,7 @@ for(const [label,opts]of[['CBR',['-b:a','192k']],['VBR',['-q:a','3']],['VBR-gapl
   }else mp3=encode(wave(),opts);
   await page.goto('http://127.0.0.1:4173/assembly.html',{waitUntil:'networkidle'});
   await page.locator('#source-files').setInputFiles([{name:'comparison.mp3',mimeType:'audio/mpeg',buffer:mp3}]);
+  await expect(page.locator('.source-status')).toContainText('streamed-webcodecs-mp3',{timeout:30000});
   const report=await page.evaluate(async()=>{
    const file=document.querySelector('#source-files').files[0];
    const {decodeMp3Window}=await import('./js/assembly-mp3-window.js');
@@ -85,7 +86,7 @@ for(const [label,opts]of[['CBR',['-b:a','192k']],['VBR',['-q:a','3']],['VBR-gapl
    return{nativeDuration:native.duration,evidence,waveform,tags,marker};
   });
   console.log(label,JSON.stringify(report));
-  expect(report.evidence[0].readLimit).toBeLessThanOrEqual(8192);
+  for(const c of report.evidence)expect(c.readLimit).toBeLessThanOrEqual(8192);
   expect(report.evidence[0].decodedSamples).toBeLessThan(44100);
   // Offset is recorded as evidence; a sample-exact final-export gate is separate.
   for(const c of report.evidence)expect(c.corr).toBeGreaterThan(.9999);
