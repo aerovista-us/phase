@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mp3Frames,decodeMp3Window}from'../js/assembly-mp3-window.js';
+import {mp3Frames,decodeMp3Window,mp3GaplessInfo}from'../js/assembly-mp3-window.js';
 
 const rate=44100,FRAME=417,SAMPLES=1152;
 function fixture(frames=70){
@@ -65,4 +65,25 @@ test('reject unsupported native decoder without using a lossy peak proxy',async(
  delete globalThis.AudioDecoder;
  try{await assert.rejects(decodeMp3Window(fixture(),{startSec:0,endSec:1,context:fakeContext}),/unavailable/)}
  finally{globalThis.AudioDecoder=original}
+});
+
+test('recognized Xing/Lavc gapless tag derives exact native sample offset',()=>{
+ const first=new Uint8Array(FRAME);
+ first.set([0xff,0xfb,0x90,0x64]);
+ const xing=36;first.set([88,105,110,103],xing); // Xing
+ first.set([0,0,0,15],xing+4); // frames, bytes, TOC, vbr scale
+ first.set([0,0,0,40],xing+8);
+ const encoder=xing+8+4+4+100+4;
+ first.set([76,97,118,99],encoder); // Lavc
+ const delay=576,padding=1404;
+ first[encoder+21]=delay>>4;
+ first[encoder+22]=((delay&15)<<4)|(padding>>8);
+ first[encoder+23]=padding&255;
+ const h={frameSamples:1152};
+ const metadata=mp3GaplessInfo(h,first);
+ assert.equal(metadata.leadSamples,2257);
+ assert.equal(metadata.tailSamples,875);
+ assert.equal(metadata.nativeSampleCount,44100);
+ assert.equal(metadata.mode,'xing-gapless-verified');
+ first[encoder]=0;assert.throws(()=>mp3GaplessInfo(h,first),/Unknown/);
 });
