@@ -52,6 +52,27 @@ test('compressed MP3 uses WebCodecs in supporting browsers and still exports ori
  const label=await page.locator('.source-status').textContent();
  if(codecSupported)expect(label).toContain('streamed-webcodecs-mp3');
  else expect(label).toContain('compatibility decode');
+ const comparison=await page.evaluate(async()=>{
+  const file=document.querySelector('#source-files').files[0];
+  const {indexAudioPeaks}=await import('./js/assembly-peak-indexer.js');
+  const streamed=await indexAudioPeaks(file);
+  const context=new AudioContext({sampleRate:streamed.sampleRate});
+  const native=await context.decodeAudioData(await file.arrayBuffer());
+  let nativePeak=0;
+  for(let ch=0;ch<native.numberOfChannels;ch++)
+   for(const v of native.getChannelData(ch))nativePeak=Math.max(nativePeak,Math.abs(v));
+  const l=streamed.pyramid.levels[0];
+  let streamedPeak=0;
+  for(let i=0;i<l.max.length;i++)streamedPeak=Math.max(streamedPeak,Math.abs(l.max[i]),Math.abs(l.min[i]));
+  await context.close();
+  return {durationGap:Math.abs(streamed.duration-native.duration),
+   nativePeak,streamedPeak,compressedBytes:file.size,
+   peakBytes:streamed.peakBytes,decodedBytes:native.length*native.numberOfChannels*4};
+ });
+ expect(comparison.durationGap).toBeLessThan(.16);
+ expect(Math.abs(comparison.nativePeak-comparison.streamedPeak)).toBeLessThan(.10);
+ expect(comparison.streamedPeak).toBeGreaterThan(.1);
+ expect(comparison.peakBytes).toBeLessThan(comparison.decodedBytes*.2);
  await page.locator('.source-card .add').click();
  await expect(page.locator('.master-clip')).toHaveCount(1);
  const download=page.waitForEvent('download');
