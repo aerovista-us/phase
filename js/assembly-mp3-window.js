@@ -87,7 +87,19 @@ export async function decodeMp3Window(file,{startSec,endSec,context,chunkBytes=6
     timestamp:Math.round(framesFed*frameSamples*1e6/rate),data:frame.bytes}));
    framesFed++;
    if(framesFed%24===0){
-    await decoder.flush();if(error)throw error;
+    // flush() resets codec state in some MP3 WebCodecs implementations; do
+    // not flush repeatedly across dependent frame boundaries.
+    while(decoder.decodeQueueSize>8){
+     await new Promise((resolve,reject)=>{
+      const timeout=setTimeout(()=>{decoder.removeEventListener('dequeue',ready);
+        reject(new Error('MP3 decoder stalled'))},5000);
+      const ready=()=>{clearTimeout(timeout);
+       decoder.removeEventListener('dequeue',ready);resolve()};
+      decoder.addEventListener('dequeue',ready,{once:true});
+      if(decoder.decodeQueueSize<=8)ready();
+     });
+    }
+    if(error)throw error;
     onProgress?.(Math.min(1,produced/last));
     if(produced>=last)break;
    }
