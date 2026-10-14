@@ -8,7 +8,7 @@ Live alpha: **https://phase.aerovista.us/**
 ### Lightweight audio source loading (0.14.5)
 Selected PCM WAV master clips now play/render from bounded original sample windows; WebCodecs MP3 and PCM WAV use bounded source-window decoding where supported; other compressed formats retain native full-decode compatibility. PCM WAV waveforms are indexed from bounded slices without whole-track PCM decoding; MP3 uses browser WebCodecs where supported. The existing full-decode fallback is labeled rather than claimed to be lightweight. Original audio is still used for playback and export; [implementation limits](docs/MASTER_ASSEMBLY_V1.md) describe codec and memory constraints.
 
-## Drag and section export — 0.14.5 candidate
+## Drag and section export — 0.14.5 released
 
 Master Assembly supports live clip drag preview (Escape cancels; release commits one undoable edit), and IN/OUT **EXPORT SECTION WAV** with bounded original-audio source windows. Mix & Sync MOVE uses Shift for free placement or the selected beat/bar snap and commits the offset only on release. The final whole-master WAV exporter is not yet incremental. See [master assembly technical notes](docs/MASTER_ASSEMBLY_V1.md).
 
