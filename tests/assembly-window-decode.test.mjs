@@ -47,7 +47,7 @@ test('render items rebase clip sample offset and fade envelopes correctly',async
  const clip={id:'clip1',sourceId:'one',sourceIn:18,sourceOut:20,masterStart:4,
   fadeInSec:.1,fadeOutSec:.2,gainDb:-3,fadeInCurve:'equalPower',fadeOutCurve:'linear'};
  const result=await prepareAssemblyItems([clip],id=>id==='one'?source:null,{
-  context:context:context(),loadFullBuffer:()=>{throw Error('Fallback must not decode original file')}});
+  context:context(),loadFullBuffer:()=>{throw Error('Fallback must not decode original file')}});
  const item=result.items[0];
  assert.equal(item.buffer.length,96000);assert.equal(item.offset,4);
  assert.equal(item.sourceIn,0);assert.equal(item.sourceOut,2);
@@ -61,7 +61,7 @@ test('transport seeks only the needed source window and preserves original fade 
  const s={id:'one',file:f,indexMode:'streamed-pcm-wav',duration:24,sampleRate:rate};
  const c={id:'clip1',sourceId:'one',sourceIn:18,sourceOut:23,masterStart:1,fadeInSec:.5,fadeOutSec:.5};
  const result=await prepareAssemblyItems([c],()=>s,{
-  context:context:context(),loadFullBuffer:()=>{throw Error('No full decode')},from:3,to:4});
+  context:context(),loadFullBuffer:()=>{throw Error('No full decode')},from:3,to:4});
  assert.equal(result.items.length,1);
  const item=result.items[0];
  assert.equal(item.buffer.length,rate);
@@ -76,7 +76,7 @@ test('full-source compatibility stays source-relative and does not pretend to be
  const s={id:'mp3',file:f,indexMode:'streamed-webcodecs-mp3',duration:20,sampleRate:rate};
  const c={id:'c',sourceId:'mp3',sourceIn:10,sourceOut:11,masterStart:4,fadeInSec:.05,fadeOutSec:.05};
  let calls=0;
- const prepared=await prepareAssemblyItems([c],()=>s,{context:context:context(),
+ const prepared=await prepareAssemblyItems([c],()=>s,{context:context(),
   loadFullBuffer:async()=>{calls++;return {duration:20}}});
  const item=prepared.items[0];
  assert.equal(calls,1);assert.equal(item.mode,'compatibility-full-source');
@@ -89,7 +89,7 @@ test('memory preflight rejects large clips before any decoded audio allocation',
  const c={id:'c',sourceId:'a',sourceIn:0,sourceOut:1,masterStart:0};
  let called=false;
  await assert.rejects(prepareAssemblyItems([c],()=>s,{
-  context:context:context(),loadFullBuffer:()=>{called=true},maxTotalBytes:1024*1024}),/budget/);
+  context:context(),loadFullBuffer:()=>{called=true},maxTotalBytes:1024*1024}),/budget/);
  assert.equal(called,false);
 });
 test('invalid windows reject and empty timeline produces no items',async()=>{
@@ -98,6 +98,6 @@ test('invalid windows reject and empty timeline produces no items',async()=>{
  assert.throws(()=>sampleWindow(meta,1.7,2.1),/outside/);
  assert.throws(()=>sampleWindow(meta,-1,1),/Invalid/);
  assert.equal(activeClipWindow({masterStart:8,sourceIn:0,sourceOut:2},1,2),null);
- const p=await prepareAssemblyItems([],()=>null,{context:context:context(),loadFullBuffer:()=>null});
+ const p=await prepareAssemblyItems([],()=>null,{context:context(),loadFullBuffer:()=>null});
  assert.equal(p.items.length,0);
 });
