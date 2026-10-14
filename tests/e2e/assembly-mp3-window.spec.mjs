@@ -94,3 +94,55 @@ for(const [label,opts]of[['CBR',['-b:a','192k']],['VBR',['-q:a','3']],['VBR-gapl
   expect(report.waveform.peakError).toBeLessThan(0.00001);
  });
 }
+
+test('Master Assembly exports a late MP3 segment without decoding the full source',async({page})=>{
+ test.setTimeout(95000);
+ const dir=mkdtempSync(join(tmpdir(),'phase-integration-'));
+ let mp3;
+ try{
+  writeFileSync(join(dir,'source.wav'),wave());
+  execFileSync('ffmpeg',['-hide_banner','-loglevel','error','-i',join(dir,'source.wav'),
+   '-c:a','libmp3lame','-q:a','3',join(dir,'song.mp3')]);
+  mp3=readFileSync(join(dir,'song.mp3'));
+ }finally{rmSync(dir,{recursive:true,force:true})}
+ const pageErrors=[];page.on('pageerror',e=>pageErrors.push(e.message));
+ await page.goto('http://127.0.0.1:4173/assembly.html',{waitUntil:'networkidle'});
+ await page.locator('#source-files').setInputFiles([{name:'gapless-song.mp3',mimeType:'audio/mpeg',buffer:mp3}]);
+ await expect(page.locator('.source-status')).toContainText('streamed-webcodecs-mp3',{timeout:30000});
+ await page.locator('.range-out').fill('7.63');
+ await page.locator('.range-out').dispatchEvent('change');
+ await page.locator('.range-in').fill('7.13');
+ await page.locator('.range-in').dispatchEvent('change');
+ await page.evaluate(async()=>{
+  const file=document.querySelector('#source-files').files[0],context=new AudioContext({sampleRate:44100});
+  window.__masterNativeReference=await context.decodeAudioData(await file.arrayBuffer());
+  file.arrayBuffer=()=>{throw Error('Unexpected whole MP3 source decode')};
+ });
+ await page.locator('.add').click();
+ await expect(page.locator('.master-clip')).toHaveCount(1);
+ await page.locator('#play-master').click();
+ await expect(page.locator('#notice')).toContainText('1 original PCM windows',{timeout:30000});
+ await page.locator('#stop-master').click();
+ const pending=page.waitForEvent('download');
+ await page.locator('#export-master').click();
+ const download=await pending;
+ const {readFile}=await import('node:fs/promises');
+ const output=await readFile(await download.path());
+ expect(output.toString('ascii',0,4)).toBe('RIFF');
+ expect(output.readUInt32LE(24)).toBe(44100);
+ expect(output.length).toBeGreaterThan(85000);
+ expect(output.length).toBeLessThan(89000);
+ const reference=await page.evaluate(()=>{
+  const buffer=window.__masterNativeReference,from=Math.round(7.13*44100),at=Math.round(.20*44100);
+  return Array.from(buffer.getChannelData(0).subarray(from+at,from+at+4096));
+ });
+ let delta=0,energy=0;
+ for(let i=0;i<reference.length;i++){
+  const actual=output.readInt16LE(44+(Math.round(.20*44100)+i)*4)/32768;
+  const target=.92*reference[i];
+  delta+=(actual-target)**2;energy+=target*target;
+ }
+ const rmse=Math.sqrt(delta/reference.length);
+ expect(rmse).toBeLessThan(.00015);
+ expect(pageErrors).toEqual([]);
+});
