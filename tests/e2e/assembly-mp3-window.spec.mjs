@@ -1,5 +1,8 @@
 import{test,expect}from'@playwright/test';
 import{execFileSync}from'node:child_process';
+import{mkdtempSync,writeFileSync,readFileSync,rmSync}from'node:fs';
+import{tmpdir}from'node:os';
+import{join}from'node:path';
 function wave(sec=12,rate=44100){
  const n=sec*rate,out=Buffer.alloc(44+n*4);
  out.write('RIFF',0);out.writeUInt32LE(out.length-8,4);out.write('WAVEfmt ',8);
@@ -19,10 +22,18 @@ function wave(sec=12,rate=44100){
 const encode=(wav,options)=>execFileSync('ffmpeg',['-hide_banner','-loglevel','error',
  '-i','pipe:0','-c:a','libmp3lame',...options,'-f','mp3','pipe:1'],
  {input:wav,maxBuffer:8*1024*1024});
-for(const [label,opts]of[['CBR',['-b:a','192k']],['VBR',['-q:a','3']]]){
+for(const [label,opts]of[['CBR',['-b:a','192k']],['VBR',['-q:a','3']],['VBR-gapless-file',['-q:a','3']]]){
  test('MP3 window decoded audio offset vs native decode — '+label,async({page})=>{
   test.setTimeout(90000);
-  const mp3=encode(wave(),opts);
+  let mp3;
+  if(label==='VBR-gapless-file'){
+   const dir=mkdtempSync(join(tmpdir(),'phase-mp3-'));
+   try{
+    writeFileSync(join(dir,'source.wav'),wave());
+    execFileSync('ffmpeg',['-hide_banner','-loglevel','error','-i',join(dir,'source.wav'),'-c:a','libmp3lame',...opts,join(dir,'song.mp3')]);
+    mp3=readFileSync(join(dir,'song.mp3'));
+   }finally{rmSync(dir,{recursive:true,force:true})}
+  }else mp3=encode(wave(),opts);
   await page.goto('http://127.0.0.1:4173/assembly.html',{waitUntil:'networkidle'});
   await page.locator('#source-files').setInputFiles([{name:'comparison.mp3',mimeType:'audio/mpeg',buffer:mp3}]);
   const report=await page.evaluate(async()=>{
