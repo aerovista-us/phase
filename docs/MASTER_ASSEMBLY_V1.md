@@ -47,3 +47,13 @@ GitHub Pages is triggered only on merge to `main`. Deploy artifact now includes 
 - Equal-power crossfades are suitable for unrelated material but may increase summed peak level on phase-correlated sounds; export still has no master limiter. Live and offline paths share the same gain automation helper.
 - Original audio is never overwritten. Waveform indexing is unchanged and still temporarily decodes an entire file; true partial decoding remains a separate milestone.
 - Test gate: full npm check and Node regression suite, portable Chromium source/snap/crossfade/WAV smoke, browser visual QA and no regressions in Mix & Sync before merge.
+
+## 0.14.2 streamed waveform indexing candidate (not published)
+
+- **PCM WAV:** Reads original file by bounded `Blob.slice()` segments. Supports RIFF PCM 8/16/24/32-bit and float 32/64-bit, up to 8 channels. Waveform buckets track **min and max across every source channel**. Retains a multiresolution index, not decoded audio.
+- **MP3:** Attempts native `WebCodecs AudioDecoder` from parsed MPEG Layer III frames, in bounded chunks. Produces min/max peak indices and releases decoded audio frames immediately. Supported browsers benefit; incompatible codecs/browser contexts use a clearly marked full-decode compatibility path.
+- **Other containers:** Existing `decodeAudioData()` compatibility path remains. It is not advertised as lightweight; files exceeding the conservative fallback budget are rejected with guidance.
+- Existing source solo uses media-element playback. Only master playback/export and native PCM splice inspection decode complete original audio on demand. All masters render from original source files, never waveform summaries or low-resolution proxies.
+- Waveform peak indices are limited to approximately 2 million 128-frame buckets (16 MiB base min/max arrays); compressed audio and other metadata require additional bounded overhead. Indexed source time may differ slightly from other MP3 decoders due to encoder padding/priming; check this using real-source browser fixtures.
+- **Not yet implemented:** partial original-quality master rendering/clip decoding, progressive waveform paints, or a browser codec path for FLAC/AAC/OGG. These remain separate performance gates.
+- Tests must verify exact waveform min/max preservation against decoded PCM, maximum file-slice size, complete-source coverage, normal browsing and MP3 compatibility/fallback, final original-quality WAV output, existing Mix & Sync regression and recovery service worker.
