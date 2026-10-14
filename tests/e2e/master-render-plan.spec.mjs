@@ -77,9 +77,10 @@ test('frame-indexed regional audio matches a one-pass master with stable global 
   expect(row.planFrames).toBe(230400);
   expect(row.normalizationCount).toBe(2);
   expect(row.silentGap).toBe(true);
-  expect(row.maxBoundary).toBeLessThan(.02);
-  expect(row.rmsError).toBeLessThan(.003);
-  expect(row.relativeRmse).toBeLessThan(.03);
+  expect(row.maxBoundary).toBeLessThan(.00001);
+  expect(row.maxError).toBeLessThan(.00001);
+  expect(row.rmsError).toBeLessThan(.000001);
+  expect(row.relativeRmse).toBeLessThan(.00001);
  }
  expect(errors).toEqual([]);
 });
