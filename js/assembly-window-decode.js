@@ -50,6 +50,33 @@ export async function decodeWavWindow(file,{startSec,endSec,context,chunkBytes=2
   decodedBytes,mode:'windowed-original-pcm-wav'};
 }
 
+// Share the same original-sample decoder between master playback, snap and detail.
+// A compatibility decoder remains explicit and is guarded BEFORE full-file reads.
+export async function decodeSourceWindow(source,{startSec,endSec,context,loadFullBuffer,
+ maxFullBytes=240*1024*1024}={}){
+ if(!source?.file)throw Error('Relink missing original audio: '+(source?.name||'unknown'));
+ const rate=source.sampleRate;
+ if(!Number.isFinite(rate)||rate<=0||!Number.isFinite(source.duration)||source.duration<=0||
+    !Number.isFinite(startSec)||!Number.isFinite(endSec)||startSec<0||endSec>source.duration||endSec<=startSec)
+  throw Error('Invalid source detail window');
+ const start=Math.round(startSec*rate)/rate,end=Math.round(endSec*rate)/rate;
+ if(end<=start)throw Error('Detail window must contain original samples');
+ let segment;
+ if(source.indexMode==='streamed-pcm-wav'){
+  segment=await decodeWavWindow(source.file,{startSec:start,endSec:end,context});
+ }else if(source.indexMode==='streamed-webcodecs-mp3'){
+  try{segment=await decodeMp3Window(source.file,{startSec:start,endSec:end,context})}
+  catch(error){if(!(error instanceof StreamingUnavailable))throw error}
+ }
+ if(segment)return {...segment,startSec:start,endSec:end};
+ const bytes=Math.ceil(source.duration*rate*Math.max(2,source.channels||2)*4);
+ if(!Number.isSafeInteger(bytes)||bytes>maxFullBytes)
+  throw Error('Full-decode compatibility source exceeds detail memory budget. Use PCM WAV or supported MP3.');
+ if(typeof loadFullBuffer!=='function')throw Error('Native compatibility decoder required');
+ const buffer=await loadFullBuffer(source);
+ return {buffer,startSec:0,endSec:buffer.duration,mode:'compatibility-full-source'};
+}
+
 function commonClipItem(c){
  return {gain:Math.pow(10,(Number(c.gainDb)||0)/20),group:'master',
   fadeInCurve:c.fadeInCurve||c.fadeCurve||'linear',

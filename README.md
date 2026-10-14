@@ -5,17 +5,23 @@
 Live alpha: **https://phase.aerovista.us/**
 
 
-### Lightweight audio source loading (0.14.5)
+### Lightweight audio source loading (0.14.6)
 Selected PCM WAV master clips now play/render from bounded original sample windows; WebCodecs MP3 and PCM WAV use bounded source-window decoding where supported; other compressed formats retain native full-decode compatibility. PCM WAV waveforms are indexed from bounded slices without whole-track PCM decoding; MP3 uses browser WebCodecs where supported. The existing full-decode fallback is labeled rather than claimed to be lightweight. Original audio is still used for playback and export; [implementation limits](docs/MASTER_ASSEMBLY_V1.md) describe codec and memory constraints.
+
+## Source-to-master workflow — 0.14.6
+
+Drag the selected source IN/OUT region directly onto the master to insert and ripple later clips. On touch or keyboard, choose **DRAG / PLACE IN MASTER**, then tap/click a position; Cancel/Escape leaves the map unchanged. Existing **INSERT @ PLAYHEAD** remains the exact numeric/keyboard path. Undo reverses one insertion. Lost pointer capture/window focus cancels clip movement in both editors.
+
+Splice sample detail and optional zero-crossing snap now read bounded original WAV/MP3 windows through the same decoder contract as master playback. Unknown formats retain a labeled, memory-guarded native full-decode fallback. No source bytes leave the browser or enter the project map. Full-length incremental WAV output is still separate work.
 
 ## Drag and section export — 0.14.5 released
 
 Master Assembly supports live clip drag preview (Escape cancels; release commits one undoable edit), and IN/OUT **EXPORT SECTION WAV** with bounded original-audio source windows. Mix & Sync MOVE uses Shift for free placement or the selected beat/bar snap and commits the offset only on release. The final whole-master WAV exporter is not yet incremental. See [master assembly technical notes](docs/MASTER_ASSEMBLY_V1.md).
 
-## Master Assembly (0.14.5 MP3 and WAV source-window decoding)
+## Master Assembly (0.14.6 MP3 and WAV source-window decoding)
 Open assembly.html from the MASTER ASSEMBLY workflow tab. Import local sources, audition, choose IN/OUT, append or insert at playhead (splitting and rippling an occupied clip), rearrange, split, copy, paste, undo, inspect native samples, apply fades, and export PCM WAV. Source audio is never rewritten. MIX & SYNC remains available in index.html. Audio is not embedded in saved project maps. See docs/MASTER_ASSEMBLY_V1.md for acceptance and limitations. Optional zero-crossing snap and equal-power crossfade controls are available in the Splice Inspector.
 
-## Current foundation — Phase 0.14.5
+## Current foundation — Phase 0.14.6
 
 Phase is now a functional local-first mashup workstation with recovery, diagnostics, staged startup, lightweight project packaging, lifecycle-safe session persistence, resource preflight, production-readiness telemetry and an original first-run demo.
 

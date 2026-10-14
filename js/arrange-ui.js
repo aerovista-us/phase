@@ -100,7 +100,9 @@ function overrideMove(){
     lane.removeEventListener('pointermove',preview);
     lane.removeEventListener('pointerup',finish);
     lane.removeEventListener('pointercancel',cancel);
+    lane.removeEventListener('lostpointercapture',cancel);
     window.removeEventListener('keydown',escape);
+    window.removeEventListener('blur',cancel);
     try{if(lane.hasPointerCapture(id))lane.releasePointerCapture(id)}catch{}
    };
    const cancel=()=>{clear();$('#engineState').textContent=`${track.label} MOVE CANCELED · OFFSET ${startOffset.toFixed(2)}s`};
@@ -134,7 +136,9 @@ function overrideMove(){
    lane.addEventListener('pointermove',preview);
    lane.addEventListener('pointerup',finish);
    lane.addEventListener('pointercancel',cancel);
+   lane.addEventListener('lostpointercapture',cancel);
    window.addEventListener('keydown',escape);
+   window.addEventListener('blur',cancel);
   };
  }
 }
