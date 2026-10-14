@@ -54,7 +54,7 @@ test('the generator forbids gaps, duplicate frames and frame-overlaps',()=>{
 });
 test('classic RIFF limit, invalid geometry, invalid chunk budget fail closed',()=>{
  assert.equal(CLASSIC_RIFF_MAX_DATA_BYTES,0xffffffff-36);
- assert.throws(()=>createMasterRenderPlan([{masterStart:0,sourceIn:0,sourceOut:4*3600}],{
+ assert.throws(()=>createMasterRenderPlan([{masterStart:0,sourceIn:0,sourceOut:8*3600}],{
   sampleRate:48000}),/4 GiB/);
  assert.throws(()=>projectOutputFrameCount([{masterStart:0,sourceIn:9,sourceOut:2}],48000),/geometry/);
  assert.throws(()=>projectOutputFrameCount([{masterStart:0,sourceIn:0,sourceOut:2}],0),/sample rate/);
