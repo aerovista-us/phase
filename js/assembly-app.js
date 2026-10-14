@@ -3,7 +3,8 @@ import{buildWavePyramid,drawWave,drawRawSamples}from'./assembly-waveform.js';
 import{indexAudioPeaks,StreamingUnavailable}from'./assembly-peak-indexer.js';
 import{prepareAssemblyItems}from'./assembly-window-decode.js';
 import{dragSeconds,draggedBeyondThreshold}from'./drag-motion.js';
-import{renderMix,downloadWav}from'./export.js';
+import{sectionRange,sectionFilename}from'./assembly-section.js';
+import{renderMix,renderMixRegion,downloadWav}from'./export.js';
 import{applyGainEnvelope}from'./fade-model.js';
 import{findQuietZeroCrossing,autoCrossfade,snapOutgoingEnd,slipIncomingStart}from'./splice-precision.js';
 
@@ -227,6 +228,33 @@ async function exportMaster(){
    status('Master WAV exported · '+fmt(buf.duration)+' at '+rate+' Hz, PCM 16-bit · '+bounded+' windowed source clips.')}
  catch(err){status('Export failed: '+err.message,true)}finally{busy=false;for(const s of sources)s.buffer=null}
 }
+$('mark-in').onclick=()=>{
+ $('section-in').value=String(Math.max(0,Number($('playhead').value)||0));
+ status('Section IN set at '+fmt(Number($('section-in').value)));
+};
+$('mark-out').onclick=()=>{
+ $('section-out').value=String(Math.max(0,Number($('playhead').value)||0));
+ status('Section OUT set at '+fmt(Number($('section-out').value)));
+};
+$('export-section').onclick=async()=>{
+ if(busy)return;
+ if(!clips.length){status('Add at least one master clip before exporting a section.',true);return}
+ const rate=Math.max(44100,...clips.map(c=>sourceById(c.sourceId)?.sampleRate||44100));
+ let range;
+ try{
+  range=sectionRange(Number($('section-in').value),Number($('section-out').value),projectDuration(clips),rate);
+ }catch(error){status(error.message,true);return}
+ try{
+  busy=true;status('Rendering section '+fmt(range.start)+' → '+fmt(range.end)+' from original PCM source windows…');
+  const prepared=await prepareAssemblyItems(clips,sourceById,{
+   context:aud(),loadFullBuffer:bufferFor,from:range.start,to:range.end
+  });
+  const buffer=await renderMixRegion(prepared.items,range.start,range.end,rate);
+  downloadWav(buffer,sectionFilename(range.start,range.end));
+  status('Section WAV exported · '+fmt(range.start)+' → '+fmt(range.end)+' · '+rate+' Hz, PCM 16-bit');
+ }catch(err){status('Section export failed: '+err.message,true)}
+ finally{busy=false;for(const source of sources)source.buffer=null}
+};
 $('source-files').onchange=e=>addFiles([...e.target.files]);
 $('play-master').onclick=()=>{if(live.length){stop();status('Playback stopped.')}else playMaster()};
 $('stop-master').onclick=()=>{stop();status('Stopped.')};
