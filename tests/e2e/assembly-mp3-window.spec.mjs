@@ -41,6 +41,18 @@ for(const [label,opts]of[['CBR',['-b:a','192k']],['VBR',['-q:a','3']],['VBR-gapl
    const {decodeMp3Window}=await import('./js/assembly-mp3-window.js');
    const context=new AudioContext({sampleRate:44100});
    const native=await context.decodeAudioData(await file.arrayBuffer());
+   const {indexAudioPeaks}=await import('./js/assembly-peak-indexer.js');
+   const {buildWavePyramid}=await import('./js/assembly-waveform.js');
+   const indexed=await indexAudioPeaks(file),reference=buildWavePyramid(native);
+   let peakError=0;
+   const have=indexed.pyramid.levels[0],want=reference.levels[0];
+   for(let i=0;i<Math.min(have.min.length,want.min.length);i++){
+    peakError=Math.max(peakError,Math.abs(have.min[i]-want.min[i]),
+     Math.abs(have.max[i]-want.max[i]));
+   }
+   const waveform={durationGap:Math.abs(indexed.duration-native.duration),
+    sampleCountGap:indexed.sampleCount-native.length,
+    peakError,mode:indexed.gapless?.mode||'none'};
    const selected=[{from:2.31,to:2.80},{from:7.13,to:7.62}];
    const evidence=[];
    for(const{from,to}of selected){
@@ -70,12 +82,15 @@ for(const [label,opts]of[['CBR',['-b:a','192k']],['VBR',['-q:a','3']],['VBR-gapl
    const x=tags.find(t=>(t.tag==='Xing'||t.tag==='Info')&&t.at>=0);
    const marker=x?Array.from(head.subarray(x.at,x.at+180)):null;
    await context.close();
-   return{nativeDuration:native.duration,evidence,tags,marker};
+   return{nativeDuration:native.duration,evidence,waveform,tags,marker};
   });
   console.log(label,JSON.stringify(report));
   expect(report.evidence[0].readLimit).toBeLessThanOrEqual(8192);
   expect(report.evidence[0].decodedSamples).toBeLessThan(44100);
   // Offset is recorded as evidence; a sample-exact final-export gate is separate.
-  for(const c of report.evidence)expect(c.corr).toBeGreaterThan(.98);
+  for(const c of report.evidence)expect(c.corr).toBeGreaterThan(.9999);
+  expect(report.waveform.sampleCountGap).toBe(0);
+  expect(report.waveform.durationGap).toBeLessThan(1/44100);
+  expect(report.waveform.peakError).toBeLessThan(0.00001);
  });
 }
