@@ -64,8 +64,13 @@ for(const [label,opts]of[['CBR',['-b:a','192k']],['VBR',['-q:a','3']],['VBR-gapl
     evidence.push({...best,decodedSamples:b.length,readLimit:maxRead,
      framesFed:seg.compressedFramesFed,sourceFramesDecoded:seg.sourceFramesDecoded});
    }
+   const head=new Uint8Array(await file.slice(0,4096).arrayBuffer());
+   const latin=String.fromCharCode(...head);
+   const tags=['Xing','Info','LAME','Lavc','Lavf'].map(t=>({tag:t,at:latin.indexOf(t)}));
+   const x=tags.find(t=>(t.tag==='Xing'||t.tag==='Info')&&t.at>=0);
+   const marker=x?Array.from(head.subarray(x.at,x.at+180)):null;
    await context.close();
-   return{nativeDuration:native.duration,evidence};
+   return{nativeDuration:native.duration,evidence,tags,marker};
   });
   console.log(label,JSON.stringify(report));
   expect(report.evidence[0].readLimit).toBeLessThanOrEqual(8192);
