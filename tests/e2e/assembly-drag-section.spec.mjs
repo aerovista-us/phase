@@ -90,6 +90,7 @@ test('Master Assembly narrow-screen clip dragging remains visible, undoable and 
  await expect(page.locator('.source-card .add')).toBeEnabled({timeout:20000});
  await page.locator('.source-card .add').click();
  const clip=page.locator('.master-clip').first();
+ await clip.scrollIntoViewIfNeeded();
  let bounds=await clip.boundingBox();
  await page.mouse.move(bounds.x+30,bounds.y+48);
  await page.mouse.down();
