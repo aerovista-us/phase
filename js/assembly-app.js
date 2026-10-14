@@ -1,13 +1,14 @@
 import{newClip,clipDuration,clipEnd,projectDuration,insertClip,splitClip,removeClip,moveClip,updateFade,saveAssembly,restoreAssembly,quantize}from'./assembly-model.js';
 import{buildWavePyramid,drawWave,drawRawSamples}from'./assembly-waveform.js';
 import{indexAudioPeaks,StreamingUnavailable}from'./assembly-peak-indexer.js';
+import{prepareAssemblyItems}from'./assembly-window-decode.js';
 import{renderMix,downloadWav}from'./export.js';
 import{applyGainEnvelope}from'./fade-model.js';
 import{findQuietZeroCrossing,autoCrossfade,snapOutgoingEnd,slipIncomingStart}from'./splice-precision.js';
 
 const $=id=>document.getElementById(id);
 const fmt=s=>{const n=Math.max(0,s||0);return Math.floor(n/60)+':'+(n%60).toFixed(2).padStart(5,'0')};
-let sources=[],clips=[],selectedId=null,clipboard=null,undoStack=[],zoom=8,autoFit=true,ctx=null,live=[],sourcePlayer=new Audio(),currentSource=null,stopAt=Infinity,busy=false,previewUrl=null;
+let sources=[],clips=[],selectedId=null,clipboard=null,undoStack=[],zoom=8,autoFit=true,ctx=null,live=[],sourcePlayer=new Audio(),currentSource=null,stopAt=Infinity,busy=false,previewUrl=null,playToken=0;
 const sourceById=id=>sources.find(s=>s.id===id);
 const selected=()=>clips.find(c=>c.id===selectedId);
 const status=(message,error=false)=>{$('notice').textContent=message;$('notice').classList.toggle('error',error)};
@@ -15,6 +16,7 @@ const genId=()=>crypto.randomUUID?.()||Math.random().toString(36).slice(2);
 const snapshot=()=>{undoStack.push(clips.map(c=>({...c})));if(undoStack.length>60)undoStack.shift()};
 const aud=()=>ctx||(ctx=new(window.AudioContext||window.webkitAudioContext)());
 function stop(){
+ playToken++;
  sourcePlayer.pause();
  if(previewUrl){sourcePlayer.removeAttribute('src');sourcePlayer.load();URL.revokeObjectURL(previewUrl);previewUrl=null;}
  live.forEach(s=>{try{s.stop()}catch{}});live=[];
@@ -139,30 +141,36 @@ async function bufferFor(s){if(!s?.file)throw Error('Relink missing audio source
   if(!s.buffer)s.buffer=await aud().decodeAudioData(await s.file.arrayBuffer());
   return s.buffer;
 }
-async function withBuffers(){const used=[...new Set(clips.map(c=>c.sourceId))];
- const sum=used.reduce((a,id)=>{const s=sourceById(id);return a+(s?.duration||0)*(s?.sampleRate||48000)*8},0);
- if(sum>450*1024*1024)throw Error('Source decode estimate exceeds 450 MB. Reduce loaded sources or make shorter assemblies.');
- for(const id of used)await bufferFor(sourceById(id));
-}
-const items=()=>clips.map(c=>({buffer:sourceById(c.sourceId).buffer,offset:c.masterStart-c.sourceIn,sourceIn:c.sourceIn,sourceOut:c.sourceOut,gain:Math.pow(10,c.gainDb/20),group:'master',fadeInStart:c.sourceIn,fadeInEnd:c.sourceIn+c.fadeInSec,fadeOutStart:c.sourceOut-c.fadeOutSec,fadeOutEnd:c.sourceOut,fadeInCurve:c.fadeInCurve||c.fadeCurve||'linear',fadeOutCurve:c.fadeOutCurve||c.fadeCurve||'linear'}));
 async function playMaster(time=null,windowEnd=null){
- stop();if(!clips.length){status('Add clips to master first.',true);return}
- const t=Math.max(0,time??(Number($('playhead').value)||0));const context=aud();await context.resume();
- try{busy=true;status('Preparing original-quality audio…');await withBuffers();
-   const base=context.currentTime+.06;
-   const list=clips.filter(c=>clipEnd(c)>t&&c.masterStart<(windowEnd??Infinity));
-   let last=null,latest=-1;
-   for(const c of list){const s=sourceById(c.sourceId),start=Math.max(t,c.masterStart),end=Math.min(clipEnd(c),windowEnd??Infinity);
-     if(end<=start)continue;const b=context.createBufferSource(),g=context.createGain();
-     b.buffer=s.buffer;b.connect(g).connect(context.destination);
-     const w={offset:c.masterStart-c.sourceIn,fadeInStart:c.sourceIn,fadeInEnd:c.sourceIn+c.fadeInSec,fadeOutStart:c.sourceOut-c.fadeOutSec,fadeOutEnd:c.sourceOut,fadeInCurve:c.fadeInCurve||c.fadeCurve||'linear',fadeOutCurve:c.fadeOutCurve||c.fadeCurve||'linear'};
-     applyGainEnvelope(g.gain,.88*Math.pow(10,c.gainDb/20),w,start,end,base+start-t);
-     b.start(base+start-t,c.sourceIn+start-c.masterStart,end-start);live.push(b);if(end>latest){latest=end;last=b}
-   }
-   if(!live.length){status('Move playhead into an occupied region.',true);return}
-   if(last)last.onended=()=>{live=[];for(const s of sources)s.buffer=null;$('play-master').textContent='▶ PLAY MASTER'};
-   $('play-master').textContent='■ STOP MASTER';status('Playing original-quality master from '+fmt(t));
- }catch(err){status(err.message,true)}
+ stop();
+ if(!clips.length){status('Add clips to master first.',true);return}
+ if(busy){status('Another audio operation is still running.',true);return}
+ const token=playToken,t=Math.max(0,time??(Number($('playhead').value)||0));
+ const context=aud();await context.resume();
+ try{
+  busy=true;status('Loading only the original source regions needed for playback…');
+  const prepared=await prepareAssemblyItems(clips,sourceById,{
+   context,loadFullBuffer:bufferFor,from:t,to:windowEnd??Infinity});
+  if(token!==playToken)return; // Stop or source audition superseded this asynchronous decode.
+  const base=context.currentTime+.06;
+  let last=null,latest=-1;
+  for(const item of prepared.items){
+   const start=Math.max(t,item.offset+item.sourceIn),end=Math.min(item.offset+item.sourceOut,windowEnd??Infinity);
+   if(end<=start)continue;
+   const source=context.createBufferSource(),gain=context.createGain();
+   source.buffer=item.buffer;source.connect(gain).connect(context.destination);
+   applyGainEnvelope(gain.gain,.88*item.gain,item,start,end,base+start-t);
+   source.start(base+start-t,Math.max(0,start-item.offset),end-start);
+   live.push(source);
+   if(end>latest){latest=end;last=source}
+  }
+  if(!live.length){status('Move playhead into an occupied region.',true);return}
+  if(last)last.onended=()=>{if(token!==playToken)return;live=[];
+   for(const s of sources)s.buffer=null;$('play-master').textContent='▶ PLAY MASTER'};
+  $('play-master').textContent='■ STOP MASTER';
+  const bounded=prepared.items.filter(i=>i.mode==='windowed-original-pcm-wav').length;
+  status('Playing master · '+bounded+' original PCM windows · from '+fmt(t));
+ }catch(err){if(token===playToken)status('Playback: '+err.message,true)}
  finally{busy=false}
 }
 async function exportMaster(){
@@ -171,8 +179,12 @@ async function exportMaster(){
  const rate=Math.max(44100,...clips.map(c=>sourceById(c.sourceId)?.sampleRate||44100));
  const outBytes=seconds*rate*2*6;
  if(outBytes>440*1024*1024){status('Master render may exceed safe memory budget. Shorten assembly or render in sections.',true);return}
- try{busy=true;status('Rendering master from original-quality audio…');await withBuffers();const buf=await renderMix(items(),rate);
-   downloadWav(buf,'phase-master-assembly.wav');status('Master WAV exported · '+fmt(buf.duration)+' at '+rate+' Hz, PCM 16-bit.')}
+ try{busy=true;status('Loading original clip windows and rendering full-quality master…');
+   const prepared=await prepareAssemblyItems(clips,sourceById,{context:aud(),loadFullBuffer:bufferFor});
+   const buf=await renderMix(prepared.items,rate);
+   downloadWav(buf,'phase-master-assembly.wav');
+   const bounded=prepared.items.filter(i=>i.mode==='windowed-original-pcm-wav').length;
+   status('Master WAV exported · '+fmt(buf.duration)+' at '+rate+' Hz, PCM 16-bit · '+bounded+' windowed source clips.')}
  catch(err){status('Export failed: '+err.message,true)}finally{busy=false;for(const s of sources)s.buffer=null}
 }
 $('source-files').onchange=e=>addFiles([...e.target.files]);

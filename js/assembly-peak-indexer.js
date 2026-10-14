@@ -139,3 +139,6 @@ export async function indexAudioPeaks(file,opts={}){
   return indexMp3(file,opts);
  throw new StreamingUnavailable('No streaming indexer for audio container');
 }
+
+// Shared RIFF parser and native sample converter for bounded PCM clip loading.
+export {wavMeta as readWavMetadata, pcm as readPcmSample};

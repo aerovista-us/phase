@@ -5,13 +5,13 @@
 Live alpha: **https://phase.aerovista.us/**
 
 
-### Lightweight source waveform loading (0.14.2)
-PCM WAV waveforms are indexed from bounded slices without whole-track PCM decoding; MP3 uses browser WebCodecs where supported. The existing full-decode fallback is labeled rather than claimed to be lightweight. Original audio is still used for playback and export; [implementation limits](docs/MASTER_ASSEMBLY_V1.md) describe codec and memory constraints.
+### Lightweight audio source loading (0.14.3)
+Selected PCM WAV master clips now play/render from bounded original sample windows; compressed formats still use full-decode compatibility for master output. PCM WAV waveforms are indexed from bounded slices without whole-track PCM decoding; MP3 uses browser WebCodecs where supported. The existing full-decode fallback is labeled rather than claimed to be lightweight. Original audio is still used for playback and export; [implementation limits](docs/MASTER_ASSEMBLY_V1.md) describe codec and memory constraints.
 
-## Master Assembly (0.14.2 source-streaming)
+## Master Assembly (0.14.3 PCM window-decode candidate)
 Open assembly.html from the MASTER ASSEMBLY workflow tab. Import local sources, audition, choose IN/OUT, append or insert at playhead (splitting and rippling an occupied clip), rearrange, split, copy, paste, undo, inspect native samples, apply fades, and export PCM WAV. Source audio is never rewritten. MIX & SYNC remains available in index.html. Audio is not embedded in saved project maps. See docs/MASTER_ASSEMBLY_V1.md for acceptance and limitations. Optional zero-crossing snap and equal-power crossfade controls are available in the Splice Inspector.
 
-## Current foundation — Phase 0.14.2
+## Current foundation — Phase 0.14.3
 
 Phase is now a functional local-first mashup workstation with recovery, diagnostics, staged startup, lightweight project packaging, lifecycle-safe session persistence, resource preflight, production-readiness telemetry and an original first-run demo.
 
