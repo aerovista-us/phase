@@ -14,7 +14,7 @@ Drag the selected source IN/OUT region directly onto the master to insert and ri
 
 Splice sample detail and optional zero-crossing snap now read bounded original WAV/MP3 windows through the same decoder contract as master playback. Unknown formats retain a labeled, memory-guarded native full-decode fallback. No source bytes leave the browser or enter the project map. Full-length incremental WAV output is still separate work.
 
-## Drag and section export — 0.14.5
+## Drag and section export — 0.14.5 released
 
 Master Assembly supports live clip drag preview (Escape cancels; release commits one undoable edit), and IN/OUT **EXPORT SECTION WAV** with bounded original-audio source windows. Mix & Sync MOVE uses Shift for free placement or the selected beat/bar snap and commits the offset only on release. The final whole-master WAV exporter is not yet incremental. See [master assembly technical notes](docs/MASTER_ASSEMBLY_V1.md).
 
