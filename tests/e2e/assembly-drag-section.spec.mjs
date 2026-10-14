@@ -1,0 +1,129 @@
+import{test,expect}from'@playwright/test';
+import{readFile}from'node:fs/promises';
+function wav(seconds=6,rate=44100){
+ const count=seconds*rate,b=Buffer.alloc(44+count*2);
+ b.write('RIFF',0);b.writeUInt32LE(36+count*2,4);b.write('WAVEfmt ',8);
+ b.writeUInt32LE(16,16);b.writeUInt16LE(1,20);b.writeUInt16LE(1,22);
+ b.writeUInt32LE(rate,24);b.writeUInt32LE(rate*2,28);
+ b.writeUInt16LE(2,32);b.writeUInt16LE(16,34);b.write('data',36);b.writeUInt32LE(count*2,40);
+ for(let i=0;i<count;i++)b.writeInt16LE(Math.round(12000*Math.sin(2*Math.PI*170*i/rate)),44+i*2);
+ return b;
+}
+test('Master Assembly clip drag previews, escapes, commits and section export keeps source samples',async({page})=>{
+ test.setTimeout(70000);
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('http://127.0.0.1:4173/assembly.html',{waitUntil:'networkidle'});
+ const audio=wav();
+ await page.locator('#source-files').setInputFiles([{name:'drag-tone.wav',mimeType:'audio/wav',buffer:audio}]);
+ await expect(page.locator('.source-card .add')).toBeEnabled({timeout:20000});
+ await page.locator('.source-card .add').click();
+ const clip=page.locator('.master-clip').first(),rect=await clip.boundingBox();
+ expect(rect).toBeTruthy();
+ const x=rect.x+Math.min(rect.width*.2,80),y=rect.y+60;
+ await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+80,y,{steps:5});
+ await expect(page.locator('#notice')).toContainText('Moving clip');
+ await page.keyboard.press('Escape');await page.mouse.up();
+ await expect(page.locator('#clip-start')).toHaveValue('0.000000');
+ const after=await clip.boundingBox();
+ await page.mouse.move(after.x+Math.min(after.width*.2,80),after.y+60);
+ await page.mouse.down();await page.mouse.move(after.x+Math.min(after.width*.2,80)+100,after.y+60,{steps:5});
+ await page.mouse.up();
+ await expect(page.locator('#notice')).toContainText('Clip moved');
+ const moved=Number(await page.locator('#clip-start').inputValue());
+ expect(moved).toBeGreaterThan(.2);
+ await page.locator('#undo').click();
+ await expect(page.locator('#clip-start')).toHaveValue('0.000000');
+ await page.locator('#section-in').fill('0.30');await page.locator('#section-out').fill('1.10');
+ const pending=page.waitForEvent('download');await page.locator('#export-section').click();
+ const downloaded=await pending,bytes=await readFile(await downloaded.path());
+ expect(downloaded.suggestedFilename()).toBe('phase-master-0-300_to_1-100.wav');
+ expect(bytes.toString('ascii',0,4)).toBe('RIFF');
+ expect(bytes.readUInt32LE(24)).toBe(44100);
+ expect(bytes.readUInt32LE(40)).toBe(4*Math.round(.8*44100));
+ let sum=0;
+ for(let i=0;i<2048;i++){
+  const actual=bytes.readInt16LE(44+4*(4410+i))/32768;
+  const original=audio.readInt16LE(44+2*(Math.round(.3*44100)+4410+i))/32768;
+  sum+=(actual-.92*original)**2;
+ }
+ expect(Math.sqrt(sum/2048)).toBeLessThan(.00015);
+ expect(errors).toEqual([]);
+});
+test('Mix & Sync drag previews cheaply, Escape cancels, Shift enables free move, release commits',async({page})=>{
+ test.setTimeout(60000);
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('http://127.0.0.1:4173/',{waitUntil:'networkidle'});
+ await page.locator('#demoProject').click();
+ await expect(page.locator('#engineState')).toContainText('DEMO READY',{timeout:20000});
+ await page.locator('.mode[data-mode="move"]').click();
+ const lane=page.locator('#lane-0'),rect=await lane.boundingBox();
+ expect(rect).toBeTruthy();
+ const x=rect.x+rect.width*.42,y=rect.y+rect.height*.68;
+ const before=await page.locator('#offset-0').inputValue();
+ await page.mouse.move(x,y);await page.mouse.down();
+ await page.mouse.move(x+85,y,{steps:5});
+ await expect(lane).toHaveClass(/move-active/);
+ expect(await lane.evaluate(el=>el.style.getPropertyValue('--phase-drag-preview'))).not.toBe('');
+ expect(await page.locator('#offset-0').inputValue()).toBe(before);
+ await page.keyboard.press('Escape');await page.mouse.up();
+ await expect(lane).not.toHaveClass(/move-active/);
+ expect(await page.locator('#offset-0').inputValue()).toBe(before);
+ // Escape may also return Phase to SELECT; choose MOVE explicitly for the next edit.
+ await page.locator('.mode[data-mode="move"]').click();
+ await page.mouse.move(x,y);await page.mouse.down();
+ await page.keyboard.down('Shift');await page.mouse.move(x+130,y,{steps:5});
+ await expect(lane).toHaveClass(/move-active/);
+ await page.mouse.up();await page.keyboard.up('Shift');
+ const current=Number(await page.locator('#offset-0').inputValue());
+ expect(current).toBeGreaterThan(Number(before)+.1);
+ await expect(page.locator('#engineState')).toContainText('MOVED TO');
+ expect(errors).toEqual([]);
+});
+
+test('Master Assembly narrow-screen clip dragging remains visible, undoable and keyboard accessible',async({page})=>{
+ test.setTimeout(35000);
+ await page.setViewportSize({width:390,height:844});
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('http://127.0.0.1:4173/assembly.html',{waitUntil:'networkidle'});
+ await expect(page.locator('#export-section')).toBeVisible();
+ await page.locator('#source-files').setInputFiles([{name:'phone-sample.wav',mimeType:'audio/wav',buffer:wav(3)}]);
+ await expect(page.locator('.source-card .add')).toBeEnabled({timeout:20000});
+ await page.locator('.source-card .add').click();
+ const clip=page.locator('.master-clip').first();
+ await clip.scrollIntoViewIfNeeded();
+ let bounds=await clip.boundingBox();
+ await page.mouse.move(bounds.x+30,bounds.y+48);
+ await page.mouse.down();
+ await page.mouse.move(bounds.x+65,bounds.y+48,{steps:6});
+ await expect(clip).toHaveClass(/dragging/);
+ await page.mouse.up();
+ await expect(page.locator('#notice')).toContainText('Clip moved');
+ expect(Number(await page.locator('#clip-start').inputValue())).toBeGreaterThan(0);
+ await page.locator('#undo').click();
+ await expect(page.locator('#clip-start')).toHaveValue('0.000000');
+ await clip.focus();await page.keyboard.press('Enter');
+ await expect(page.locator('#clip-editor')).toBeVisible();
+ expect(errors).toEqual([]);
+});
+test('Mix & Sync drag preview shifts visible waveform but never changes offset before release',async({page})=>{
+ test.setTimeout(50000);
+ await page.goto('http://127.0.0.1:4173/',{waitUntil:'networkidle'});
+ await page.locator('#demoProject').click();
+ await expect(page.locator('#engineState')).toContainText('DEMO READY',{timeout:15000});
+ await page.locator('.mode[data-mode="move"]').click();
+ const lane=page.locator('#lane-0'),rect=await lane.boundingBox();
+ const x=rect.x+rect.width*.4,y=rect.y+rect.height*.68;
+ const original=await page.locator('#offset-0').inputValue();
+ await page.mouse.move(x,y);await page.mouse.down();
+ await page.mouse.move(x+54,y,{steps:5});
+ await expect(lane).toHaveClass(/move-active/);
+ const visual=await lane.evaluate(el=>({
+  px:parseFloat(el.style.getPropertyValue('--phase-drag-preview')),
+  transform:getComputedStyle(el.querySelector('.wave')).transform
+ }));
+ expect(Math.abs(visual.px)).toBeGreaterThan(10);
+ expect(visual.transform).not.toBe('none');
+ expect(await page.locator('#offset-0').inputValue()).toBe(original);
+ await page.mouse.up();
+ expect(Number(await page.locator('#offset-0').inputValue())).not.toBe(Number(original));
+});

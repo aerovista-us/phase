@@ -2,7 +2,9 @@ import{newClip,clipDuration,clipEnd,projectDuration,insertClip,splitClip,removeC
 import{buildWavePyramid,drawWave,drawRawSamples}from'./assembly-waveform.js';
 import{indexAudioPeaks,StreamingUnavailable}from'./assembly-peak-indexer.js';
 import{prepareAssemblyItems}from'./assembly-window-decode.js';
-import{renderMix,downloadWav}from'./export.js';
+import{dragSeconds,draggedBeyondThreshold}from'./drag-motion.js';
+import{sectionRange,sectionFilename}from'./assembly-section.js';
+import{renderMix,renderMixRegion,downloadWav}from'./export.js';
 import{applyGainEnvelope}from'./fade-model.js';
 import{findQuietZeroCrossing,autoCrossfade,snapOutgoingEnd,slipIncomingStart}from'./splice-precision.js';
 
@@ -111,11 +113,50 @@ function drawMaster(){
    const wave=document.createElement('canvas'),label=document.createElement('span');label.textContent=(s?.name||'Missing audio')+' · '+fmt(c.sourceIn);
    el.append(wave,label);lane.append(el);
    if(s?.pyramid)drawWave(wave,s.pyramid,c.sourceIn,c.sourceOut,{stroke:'#8addf6'});
-   el.onclick=()=>{selectedId=c.id;updateUI()};
+   let dragging=false,suppressClick=false;
+   el.onclick=()=>{if(suppressClick){suppressClick=false;return}selectedId=c.id;updateUI()};
    el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectedId=c.id;updateUI()}};
-   el.onpointerdown=e=>{if(e.button!==0)return;const origin=e.clientX,base=c.masterStart;
-      el.setPointerCapture(e.pointerId);
-      el.onpointerup=up=>{el.onpointerup=null;const dx=up.clientX-origin;if(Math.abs(dx)>5){snapshot();clips=moveClip(clips,c.id,Math.max(0,base+dx/zoom));selectedId=c.id;updateUI()}};
+   el.onpointerdown=e=>{
+     if(e.button!==0||e.target.closest('button,input'))return;
+     const pointerId=e.pointerId,startX=e.clientX,base=c.masterStart,oldLeft=el.style.left;
+     let moved=false,pending=base,active=true;
+     const cleanup=()=>{
+       if(!active)return;active=false;dragging=false;
+       el.classList.remove('dragging');
+       el.removeEventListener('pointermove',preview);
+       el.removeEventListener('pointerup',finish);
+       el.removeEventListener('pointercancel',cancel);
+       window.removeEventListener('keydown',escape);
+       try{if(el.hasPointerCapture(pointerId))el.releasePointerCapture(pointerId)}catch{}
+     };
+     const cancel=()=>{el.style.left=oldLeft;cleanup();status('Clip move canceled.');};
+     const escape=key=>{if(key.key==='Escape'){key.preventDefault();cancel()}};
+     const preview=ev=>{
+       if(ev.pointerId!==pointerId)return;
+       const dx=ev.clientX-startX;
+       if(!moved&&!draggedBeyondThreshold(dx))return;
+       moved=true;dragging=true;pending=dragSeconds(base,dx,zoom,{min:0});
+       el.style.left=pending*zoom+'px';
+       el.classList.add('dragging');
+       status('Moving clip · '+fmt(pending)+' · release to set, Esc to cancel');
+     };
+     const finish=ev=>{
+       if(ev.pointerId!==pointerId)return;
+       if(moved){
+         const dx=ev.clientX-startX;
+         pending=dragSeconds(base,dx,zoom,{min:0});
+         const changed=Math.abs(pending-base)>1/48000;
+         suppressClick=true;
+         if(changed){snapshot();clips=moveClip(clips,c.id,pending)}
+         selectedId=c.id;
+         cleanup();updateUI();status(changed?'Clip moved to '+fmt(pending)+'. Undo available.':'Clip position unchanged.');
+       }else{cleanup()}
+     };
+     el.setPointerCapture(pointerId);
+     el.addEventListener('pointermove',preview);
+     el.addEventListener('pointerup',finish);
+     el.addEventListener('pointercancel',cancel);
+     window.addEventListener('keydown',escape);
    };
  }
 }
@@ -187,6 +228,33 @@ async function exportMaster(){
    status('Master WAV exported · '+fmt(buf.duration)+' at '+rate+' Hz, PCM 16-bit · '+bounded+' windowed source clips.')}
  catch(err){status('Export failed: '+err.message,true)}finally{busy=false;for(const s of sources)s.buffer=null}
 }
+$('mark-in').onclick=()=>{
+ $('section-in').value=String(Math.max(0,Number($('playhead').value)||0));
+ status('Section IN set at '+fmt(Number($('section-in').value)));
+};
+$('mark-out').onclick=()=>{
+ $('section-out').value=String(Math.max(0,Number($('playhead').value)||0));
+ status('Section OUT set at '+fmt(Number($('section-out').value)));
+};
+$('export-section').onclick=async()=>{
+ if(busy)return;
+ if(!clips.length){status('Add at least one master clip before exporting a section.',true);return}
+ const rate=Math.max(44100,...clips.map(c=>sourceById(c.sourceId)?.sampleRate||44100));
+ let range;
+ try{
+  range=sectionRange(Number($('section-in').value),Number($('section-out').value),projectDuration(clips),rate);
+ }catch(error){status(error.message,true);return}
+ try{
+  busy=true;status('Rendering section '+fmt(range.start)+' → '+fmt(range.end)+' from original PCM source windows…');
+  const prepared=await prepareAssemblyItems(clips,sourceById,{
+   context:aud(),loadFullBuffer:bufferFor,from:range.start,to:range.end
+  });
+  const buffer=await renderMixRegion(prepared.items,range.start,range.end,rate);
+  downloadWav(buffer,sectionFilename(range.start,range.end));
+  status('Section WAV exported · '+fmt(range.start)+' → '+fmt(range.end)+' · '+rate+' Hz, PCM 16-bit');
+ }catch(err){status('Section export failed: '+err.message,true)}
+ finally{busy=false;for(const source of sources)source.buffer=null}
+};
 $('source-files').onchange=e=>addFiles([...e.target.files]);
 $('play-master').onclick=()=>{if(live.length){stop();status('Playback stopped.')}else playMaster()};
 $('stop-master').onclick=()=>{stop();status('Stopped.')};

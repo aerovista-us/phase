@@ -28,3 +28,11 @@ main{max-width:1480px;padding:25px clamp(14px,3vw,40px) 60px;margin:auto}.hero{d
 select{background:#152638;color:#e9f2ff;border:1px solid #58718b;border-radius:7px;padding:9px}
 
 .join-precision{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:12px 0;padding:10px;border:1px solid #34556a;border-radius:8px;background:#172e40}.join-precision label{display:flex;align-items:center;gap:6px;font-size:12px;color:#b8cfe0}.join-precision input{width:65px;background:#0d1722;border:1px solid #496780;color:white;border-radius:6px;padding:8px}.join-precision button{font-size:11px}
+
+.master-clip.dragging{cursor:grabbing;z-index:9;box-shadow:0 0 0 2px #8ad1ea,0 12px 25px #0008;opacity:.94;touch-action:none}
+.master-clip{touch-action:pan-y}
+.section-export{margin:0 0 12px;border:1px solid #36536a;border-radius:8px;background:#142b3b;padding:8px}
+.section-export #export-section{background:#206a75}
+.section-export input{width:100px}
+
+@media(max-width:520px){.source-actions input{width:93px;min-width:93px}.source-actions{gap:8px}.source-card{grid-template-columns:minmax(0,1fr)}}
