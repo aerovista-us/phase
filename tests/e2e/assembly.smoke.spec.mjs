@@ -40,7 +40,7 @@ test('Master Assembly: import, sample inspect, ripple splice, solo and WAV',asyn
  await expect(page.locator('#notice')).toContainText('Solo audition',{timeout:12000});
  await page.locator('#stop-master').click();
  await page.locator('#play-master').click();
- await expect(page.locator('#notice')).toContainText('Playing original-quality master',{timeout:15000});
+ await expect(page.locator('#notice')).toContainText('Playing master',{timeout:15000});
  await page.locator('#stop-master').click();
  const pending=page.waitForEvent('download');
  await page.locator('#export-master').click();
