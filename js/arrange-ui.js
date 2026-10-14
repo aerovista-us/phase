@@ -1,5 +1,6 @@
 import{state,$,$$,markDirty}from'./state.js';
 import{firstDownbeatIndex,snapTrackOffset,alignByMarkers,meterBeats}from'./arrangement.js';
+import{dragSeconds,draggedBeyondThreshold,timelinePixelsPerSecond}from'./drag-motion.js';
 
 const style=document.createElement('style');
 style.textContent=`
@@ -10,6 +11,13 @@ style.textContent=`
 .track-tools .mini.solo.active{border-color:#c6a66b;background:#302919;color:#f1deb5}
 .snap-select{height:27px;border:1px solid #263542;border-radius:5px;background:#111820;color:#d9e2e7;padding:0 7px;font:10px ui-monospace,monospace}
 .align-readout{font:9px ui-monospace,monospace;color:#c6a66b;white-space:nowrap}
+.lane.move-ready{cursor:grab;touch-action:pan-y}
+.lane.move-active{cursor:grabbing;outline:1px solid #c6a66b}
+.lane.move-active .wave,.lane.move-active .markers,.lane.move-active .empty{
+ transform:translateX(var(--phase-drag-preview,0px));
+ will-change:transform
+}
+
 `;
 document.head.appendChild(style);
 
@@ -73,19 +81,62 @@ function alignSelected(){
 }
 
 function overrideMove(){
-  for(const track of state.tracks){
-    const lane=$(`#lane-${track.id}`);if(!lane)continue;
-    lane.onmousedown=e=>{
-      if(state.mode!=='move'||state.rendering||e.target.closest('.marker'))return;
-      e.preventDefault();
-      const rect=lane.getBoundingClientRect(),startX=e.clientX,startOffset=track.timelineOffset||0,view=state.viewDuration,anchorIdx=chosenAlignIndex(track),anchorTime=track.markers[anchorIdx]?.targetTime||0,input=$(`#offset-${track.id}`);
-      lane.classList.add('move-active');let raf=0,pending=startOffset;
-      const apply=()=>{raf=0;track.timelineOffset=pending;input.value=pending.toFixed(2);input.onchange?.({target:input})};
-      const move=ev=>{let next=startOffset+(ev.clientX-startX)/rect.width*view;if(!ev.shiftKey)next=snapTrackOffset(next,anchorTime,state.bpm,state.snapMode,state.beatsPerBar||4);pending=next;if(!raf)raf=requestAnimationFrame(apply);$('#engineState').textContent=`MOVING ${track.label} · ${next.toFixed(2)}s · ${ev.shiftKey?'FREE':state.snapMode.toUpperCase()+' SNAP'} · ${state.meter||'4/4'}`};
-      const up=()=>{if(raf){cancelAnimationFrame(raf);apply()}lane.classList.remove('move-active');window.removeEventListener('mousemove',move);window.removeEventListener('mouseup',up);$('#engineState').textContent=`${track.label} POSITION UPDATED · AUDIO PREVIEW CATCHING UP`};
-      window.addEventListener('mousemove',move);window.addEventListener('mouseup',up);
-    };
-  }
+ for(const track of state.tracks){
+  const lane=$(`#lane-${track.id}`);if(!lane)continue;
+  // Replace the legacy eager-mousemove redraw path, not both handlers at once.
+  lane.onmousedown=null;
+  lane.onpointerdown=e=>{
+   if(e.button!==0||state.mode!=='move'||state.rendering||
+      e.target.closest('.marker')||!track.buffer)return;
+   e.preventDefault();
+   const startX=e.clientX,id=e.pointerId,rect=lane.getBoundingClientRect(),
+     startOffset=track.timelineOffset||0,pxPerSecond=timelinePixelsPerSecond(rect.width,state.viewDuration),
+     anchorIdx=chosenAlignIndex(track),anchorTime=track.markers[anchorIdx]?.targetTime||0,
+     input=$(`#offset-${track.id}`);
+   let moved=false,pending=startOffset,active=true;
+   const clear=()=>{
+    if(!active)return;active=false;
+    lane.classList.remove('move-active');lane.style.removeProperty('--phase-drag-preview');
+    lane.removeEventListener('pointermove',preview);
+    lane.removeEventListener('pointerup',finish);
+    lane.removeEventListener('pointercancel',cancel);
+    window.removeEventListener('keydown',escape);
+    try{if(lane.hasPointerCapture(id))lane.releasePointerCapture(id)}catch{}
+   };
+   const cancel=()=>{clear();$('#engineState').textContent=`${track.label} MOVE CANCELED · OFFSET ${startOffset.toFixed(2)}s`};
+   const escape=key=>{if(key.key==='Escape'){key.preventDefault();cancel()}};
+   const preview=ev=>{
+    if(ev.pointerId!==id)return;
+    const dx=ev.clientX-startX;
+    if(!moved&&!draggedBeyondThreshold(dx))return;
+    moved=true;
+    let next=dragSeconds(startOffset,dx,pxPerSecond);
+    if(!ev.shiftKey)next=snapTrackOffset(next,anchorTime,state.bpm,state.snapMode,state.beatsPerBar||4);
+    pending=next;
+    lane.classList.add('move-active');
+    lane.style.setProperty('--phase-drag-preview',(next-startOffset)*pxPerSecond+'px');
+    $('#engineState').textContent=`MOVING ${track.label} · ${next.toFixed(2)}s · ${ev.shiftKey?'FREE':state.snapMode.toUpperCase()+' SNAP'} · ESC CANCEL`;
+   };
+   const finish=ev=>{
+    if(ev.pointerId!==id)return;
+    if(moved){
+     // Re-evaluate release point and modifier state for final precision.
+     preview(ev);
+     const changed=Math.abs(pending-startOffset)>.00001;
+     clear();
+     if(changed){track.timelineOffset=pending;input.value=pending.toFixed(6);input.onchange?.({target:input})}
+     $('#engineState').textContent=changed?
+       `${track.label} MOVED TO ${pending.toFixed(3)}s · ${ev.shiftKey?'FREE':state.snapMode.toUpperCase()+' SNAP'}`:
+       `${track.label} OFFSET UNCHANGED`;
+    }else clear();
+   };
+   lane.setPointerCapture(id);
+   lane.addEventListener('pointermove',preview);
+   lane.addEventListener('pointerup',finish);
+   lane.addEventListener('pointercancel',cancel);
+   window.addEventListener('keydown',escape);
+  };
+ }
 }
 
 addSnapControl();addTrackTools();overrideMove();
