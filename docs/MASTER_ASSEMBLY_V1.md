@@ -71,3 +71,11 @@ GitHub Pages is triggered only on merge to `main`. Deploy artifact now includes 
 - No remote upload, catalog mutation, client-permission change, or edits to Mix & Sync.
 
 **Release acceptance:** Pure Node tests of exact sample alignment, bounded reads, re-based fades, seek windows, unavailable-source and memory limit behavior; Chromium import/play/PCM WAV export of a late region without original full-file reading; existing Mix & Sync regressions. Additional listening quality review is separate.
+
+## 0.14.4 — Experimental MP3 window decoding (NOT deployed)
+
+The new `assembly-mp3-window.js` prototype scans MP3 compressed frames **sequentially from the beginning**, processes them through browser WebCodecs and keeps only the requested original-quality PCM interval in an `AudioBuffer`. This avoids retaining full-song decoded PCM but **is not random access**: late sections still require parsing/decoding earlier compressed audio. It enforces a decoded-output memory limit, compressed scan limit, bounded Blob reads and a bounded decoder queue via periodic flush.
+
+**Critical authority gate:** MP3 encoder delay, gapless padding and native browser decoder behavior can shift the musical timeline. The experiment compares short and late windows from CBR/VBR fixtures against the browser's authoritative `decodeAudioData` output and records the best sample offset and correlation. This module is **not wired into production master playback or export** until sample alignment can be established and an explicit safe fallback is supported.
+
+No waveform proxy enters rendering, source files are immutable, and Phase 0.14.3 Mix & Sync, WAV windows and existing MP3 master export behavior are unchanged.
