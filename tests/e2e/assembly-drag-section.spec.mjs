@@ -42,7 +42,7 @@ test('Master Assembly clip drag previews, escapes, commits and section export ke
  expect(bytes.readUInt32LE(40)).toBe(4*Math.round(.8*44100));
  let sum=0;
  for(let i=0;i<2048;i++){
-  const actual=bytes.readInt16LE(44+2*(4410+i))/32768;
+  const actual=bytes.readInt16LE(44+4*(4410+i))/32768;
   const original=audio.readInt16LE(44+2*(Math.round(.3*44100)+4410+i))/32768;
   sum+=(actual-.92*original)**2;
  }
@@ -69,7 +69,16 @@ test('Mix & Sync drag previews cheaply, Escape cancels, Shift enables free move,
  await expect(lane).not.toHaveClass(/move-active/);
  expect(await page.locator('#offset-0').inputValue()).toBe(before);
  await page.mouse.move(x,y);await page.mouse.down();
- await page.keyboard.down('Shift');await page.mouse.move(x+130,y,{steps:5});await page.mouse.up();await page.keyboard.up('Shift');
+ await page.keyboard.down('Shift');await page.mouse.move(x+130,y,{steps:5});
+ console.log('SECOND DRAG',JSON.stringify(await page.evaluate(({x,y})=>({
+  mode:document.querySelector('.mode[data-mode="move"]')?.className,
+  target:document.elementFromPoint(x,y)?.className,
+  laneClass:document.querySelector('#lane-0')?.className,
+  preview:document.querySelector('#lane-0')?.style.getPropertyValue('--phase-drag-preview'),
+  status:document.querySelector('#engineState')?.textContent,
+  offset:document.querySelector('#offset-0')?.value
+ }),{x:x+130,y})));
+ await page.mouse.up();await page.keyboard.up('Shift');
  const current=Number(await page.locator('#offset-0').inputValue());
  expect(current).toBeGreaterThan(Number(before)+.1);
  await expect(page.locator('#engineState')).toContainText('MOVED TO');
