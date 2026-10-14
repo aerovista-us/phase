@@ -48,3 +48,56 @@ export async function decodeWavWindow(file,{startSec,endSec,context,chunkBytes=2
  return {buffer:result,...w,sampleRate:m.sampleRate,channels:m.channels,
   decodedBytes,mode:'windowed-original-pcm-wav'};
 }
+
+function commonClipItem(c){
+ return {gain:Math.pow(10,(Number(c.gainDb)||0)/20),group:'master',
+  fadeInCurve:c.fadeInCurve||c.fadeCurve||'linear',
+  fadeOutCurve:c.fadeOutCurve||c.fadeCurve||'linear'};
+}
+export function activeClipWindow(c,from=0,to=Infinity){
+ const begin=Math.max(c.masterStart,from),end=Math.min(c.masterStart+(c.sourceOut-c.sourceIn),to);
+ if(!(end>begin))return null;
+ return {begin,end,sourceStart:c.sourceIn+(begin-c.masterStart),sourceEnd:c.sourceIn+(end-c.masterStart)};
+}
+export async function prepareAssemblyItems(clips,getSource,{
+ context,loadFullBuffer,from=0,to=Infinity,maxTotalBytes=320*1024*1024
+}={}){
+ if(typeof getSource!=='function'||!context?.createBuffer||typeof loadFullBuffer!=='function')
+  throw Error('Source resolver, AudioContext and fallback decoder required');
+ const active=clips.map(c=>({c,w:activeClipWindow(c,from,to)})).filter(x=>x.w);
+ const seenFull=new Set();let plannedBytes=0;
+ // Reject excessive aggregate decoding before allocating sample buffers.
+ for(const {c,w} of active){
+  const s=getSource(c.sourceId);
+  if(!s?.file)throw Error('Relink missing original audio: '+(s?.name||c.sourceId));
+  if(s.indexMode==='streamed-pcm-wav'){
+   const m=await wavInfo(s.file);
+   plannedBytes+=(Math.round(w.sourceEnd*m.sampleRate)-Math.round(w.sourceStart*m.sampleRate))*m.channels*4;
+  }else if(!seenFull.has(c.sourceId)){
+   seenFull.add(c.sourceId);
+   plannedBytes+=Math.ceil(s.duration*s.sampleRate*8); // Conservative two-channel fallback.
+  }
+  if(plannedBytes>maxTotalBytes)throw new Error('Assembly decode budget exceeded. Use shorter source clips.');
+ }
+ const result=[];
+ for(const {c,w} of active){
+  const s=getSource(c.sourceId),common=commonClipItem(c);
+  if(s.indexMode==='streamed-pcm-wav'){
+   const segment=await decodeWavWindow(s.file,{startSec:w.sourceStart,endSec:w.sourceEnd,context});
+   result.push({clipId:c.id,buffer:segment.buffer,offset:w.begin,sourceIn:0,
+    sourceOut:segment.buffer.duration,...common,
+    fadeInStart:c.masterStart-w.begin,fadeInEnd:c.masterStart+c.fadeInSec-w.begin,
+    fadeOutStart:c.masterStart+(c.sourceOut-c.sourceIn)-c.fadeOutSec-w.begin,
+    fadeOutEnd:c.masterStart+(c.sourceOut-c.sourceIn)-w.begin,
+    mode:segment.mode});
+  }else{
+   const buffer=await loadFullBuffer(s);
+   result.push({clipId:c.id,buffer,offset:c.masterStart-c.sourceIn,
+    sourceIn:c.sourceIn,sourceOut:c.sourceOut,...common,
+    fadeInStart:c.sourceIn,fadeInEnd:c.sourceIn+c.fadeInSec,
+    fadeOutStart:c.sourceOut-c.fadeOutSec,fadeOutEnd:c.sourceOut,
+    mode:'compatibility-full-source'});
+  }
+ }
+ return {items:result,plannedBytes};
+}
