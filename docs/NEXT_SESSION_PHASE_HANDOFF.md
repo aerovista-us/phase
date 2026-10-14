@@ -1,5 +1,7 @@
 # EchoVerse Phase — Next Session Handoff Pointer
 
+**Current advancement plan:** [Phase product audit and implementation roadmap, Oct 14, 2026](PHASE_ADVANCEMENT_PLAN_2026-10-14.md). The plan includes tracked GitHub issues #9–#14, release priorities, acceptance criteria and external blockers.
+
 **Current continuation:** [Phase 0.14.6 closeout](HANDOFF_2026-10-14_PHASE_0146.md). Read it first and inspect latest main/PR/build metadata. The September baseline below is historical and does not supersede 0.14.x source or production evidence.
 
 **Prepared:** 2026-09-10  
