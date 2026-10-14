@@ -39,3 +39,11 @@ Keep the existing Mix & Sync workstation unchanged at `index.html`. New `assembl
 ## Deployment
 
 GitHub Pages is triggered only on merge to `main`. Deploy artifact now includes assembly.html and assembly.css; SW cache bumps to v44 and adds the three assembly JS modules. No runtime service, private source catalog or AVCC registry changes.
+
+## Splice Precision v0.14.1 candidate (not yet deployed)
+- Optional **Snap Out** searches only ±12 ms of the original decoded PCM for a low-amplitude sign crossing. It changes the outgoing source end and ripples downstream clip positions by the same small time difference. Snap is never automatic.
+- Optional **Snap In** looks for a similar crossing in the next source and *slips* its source IN and OUT together, preserving master timing and clip duration. It is unavailable without spare source head/tail.
+- **Crossfade Join** requires adjacent clips within 5 ms, permits 5–250 ms only if shorter than 45% of both clips, shortens the total master by overlapping the next clip and rippling later clips, and applies equal-power sin/cos gain curves. Explicit Undo restores the original edit map.
+- Equal-power crossfades are suitable for unrelated material but may increase summed peak level on phase-correlated sounds; export still has no master limiter. Live and offline paths share the same gain automation helper.
+- Original audio is never overwritten. Waveform indexing is unchanged and still temporarily decodes an entire file; true partial decoding remains a separate milestone.
+- Test gate: full npm check and Node regression suite, portable Chromium source/snap/crossfade/WAV smoke, browser visual QA and no regressions in Mix & Sync before merge.
