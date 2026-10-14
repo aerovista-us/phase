@@ -22,13 +22,32 @@ export function regionFrameCount(duration,sampleRate,frameCount=null){
   throw Error('Validated region frame count does not match selection');
  return frameCount;
 }
-export async function renderMixRegion(items,start,end,sampleRate=44100,{frameCount=null,allowSilence=false}={}){
+export async function renderMixRegion(items,start,end,sampleRate=44100,{frameCount=null,allowSilence=false,normalizationCount=null}={}){
   const playable=items.map(normalizeItem).filter(x=>x.buffer),r0=Math.max(0,Number(start)||0),r1=Math.max(r0,Number(end)||0),duration=r1-r0;
   if(!playable.length&&!allowSilence)throw new Error('No audio to export');if(duration<=0)throw new Error('Region is empty');
   const length=regionFrameCount(duration,sampleRate,frameCount),off=new OfflineAudioContext(2,length,sampleRate),master=off.createGain();master.gain.value=.92;master.connect(off.destination);
-  const active=playable.map(item=>({item,w:mixRegionWindow(item.offset||0,item.buffer.duration,r0,r1,item.sourceIn||0,item.sourceOut)})).filter(x=>x.w),perTrack=1/mixNormalizationCount(active.map(x=>x.item));
+  const active=playable.map(item=>({item,w:mixRegionWindow(item.offset||0,item.buffer.duration,r0,r1,item.sourceIn||0,item.sourceOut)})).filter(x=>x.w);
+  if(normalizationCount!=null&&(!Number.isSafeInteger(normalizationCount)||normalizationCount<1))
+   throw Error('Invalid fixed global mix normalization count');
+  const perTrack=1/(normalizationCount??mixNormalizationCount(active.map(x=>x.item)));
   for(const {item,w} of active){const source=off.createBufferSource(),gain=off.createGain(),base=perTrack*Math.max(0,Number.isFinite(item.gain)?item.gain:1),p0=r0+w.delay,p1=p0+w.duration;source.buffer=item.buffer;applyGainEnvelope(gain.gain,base,item,p0,p1,w.delay);source.connect(gain).connect(master);source.start(w.delay,w.sourceOffset,w.duration)}
   return off.startRendering();
+}
+
+// S1a: the caller prepares only original source windows intersecting this chunk.
+// The planned normalization count comes from the complete master, never just this
+// chunk's active clips. No finished WAV stream or sink is created by this helper.
+export async function renderPlannedMasterChunk(items,plan,chunk){
+ if(!plan||!chunk||!Number.isSafeInteger(chunk.startFrame)||
+    !Number.isSafeInteger(chunk.endFrame)||chunk.startFrame<0||
+    chunk.endFrame>plan.totalFrames||chunk.endFrame<=chunk.startFrame||
+    chunk.frameCount!==chunk.endFrame-chunk.startFrame)
+  throw Error('Invalid frame-indexed master output chunk');
+ return renderMixRegion(items,chunk.startFrame/plan.sampleRate,
+  chunk.endFrame/plan.sampleRate,plan.sampleRate,{
+   frameCount:chunk.frameCount,allowSilence:true,
+   normalizationCount:plan.normalizationCount
+  });
 }
 
 export function audioBufferToWav(buffer) {
