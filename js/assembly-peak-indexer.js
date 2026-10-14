@@ -124,13 +124,20 @@ async function id3Offset(f){
 export async function indexMp3(f,{chunkBytes=262144,onProgress}={}){
  if(typeof AudioDecoder==='undefined'||typeof EncodedAudioChunk==='undefined')
   throw new StreamingUnavailable('WebCodecs unavailable');
- let cursor=0,offset=await id3Offset(f),pending=new Uint8Array(0),decoder=null,err=null,rate=0,channels=0,frames=0;
+ let cursor=0,offset=await id3Offset(f),pending=new Uint8Array(0),decoder=null,err=null,rate=0,channels=0,frames=0,rawDecoded=0,gapless=null;
  const peaks=collector();
  const output=a=>{
   try{
    const planes=[];
    for(let c=0;c<a.numberOfChannels;c++){const d=new Float32Array(a.numberOfFrames);a.copyTo(d,{planeIndex:c,format:'f32-planar'});planes.push(d)}
-   for(let i=0;i<a.numberOfFrames;i++)peaks.sample(planes.map(v=>v[i]));
+   for(let i=0;i<a.numberOfFrames;i++){
+    const frame=rawDecoded+i;
+    if(frame<gapless.leadSamples)continue;
+    if(gapless.nativeSampleCount!=null&&
+      frame>=gapless.leadSamples+gapless.nativeSampleCount)continue;
+    peaks.sample(planes.map(v=>v[i]));
+   }
+   rawDecoded+=a.numberOfFrames;
   }catch(e){err=e}finally{a.close()}
  };
  try{
@@ -154,17 +161,35 @@ export async function indexMp3(f,{chunkBytes=262144,onProgress}={}){
     if(!(await AudioDecoder.isConfigSupported(config)).supported)
      throw new StreamingUnavailable('Native MP3 decoder unsupported');
     rate=h.sampleRate;channels=h.channels;
+    gapless=mp3GaplessInfo(h,pending.slice(cursor,cursor+h.length));
     decoder=new AudioDecoder({output,error:e=>{err=e}});decoder.configure(config);
    }
    if(h.sampleRate!==rate||h.channels!==channels)throw new Error('MP3 sample configuration changed');
    const timestamp=Math.round(frames*h.frameSamples*1e6/rate);
    decoder.decode(new EncodedAudioChunk({type:'key',timestamp,data:pending.subarray(cursor,cursor+h.length)}));
    cursor+=h.length;frames++;
-   if(frames%24===0){await decoder.flush();if(err)throw err;if(onProgress)onProgress(offset/f.size)}
+   if(frames%24===0){
+    // Preserve bit-reservoir continuity: flush only once, at end of stream.
+    while(decoder.decodeQueueSize>8){
+     await new Promise((resolve,reject)=>{
+      const timeout=setTimeout(()=>{decoder.removeEventListener('dequeue',done);
+       reject(new Error('MP3 peak index decoder stalled'))},5000);
+      const done=()=>{clearTimeout(timeout);decoder.removeEventListener('dequeue',done);resolve()};
+      decoder.addEventListener('dequeue',done,{once:true});
+      if(decoder.decodeQueueSize<=8)done();
+     });
+    }
+    if(err)throw err;
+    if(onProgress)onProgress(offset/f.size);
+   }
   }
   if(!decoder||frames<2)throw Error('No MP3 frames decoded');
   await decoder.flush();if(err)throw err;if(onProgress)onProgress(1);
-  return {...peaks.finish(rate),mode:'streamed-webcodecs-mp3',channels,compressedFrames:frames,bytesRead:f.size};
+  const indexed=peaks.finish(rate);
+  if(gapless.nativeSampleCount!=null&&indexed.sampleCount!==gapless.nativeSampleCount)
+   throw new StreamingUnavailable('MP3 gapless sample count differs from Xing metadata');
+  return {...indexed,mode:'streamed-webcodecs-mp3',channels,
+   compressedFrames:frames,bytesRead:f.size,gapless};
  }finally{if(decoder&&decoder.state!=='closed')decoder.close()}
 }
 export async function indexAudioPeaks(file,opts={}){
