@@ -79,6 +79,42 @@ export function mp3Header(u,i=0){
  if(len<24||len>2048)return null;
  return {length:len,sampleRate:sr,channels:((u[i+3]>>6)&3)===3?1:2,frameSamples:ver===3?1152:576};
 }
+// Frame-accurate MP3 native timeline mapping for recognized Xing/Info + LAME/Lavc tags.
+// Unrecognized gapless headers fail closed rather than producing time-shifted master audio.
+export function mp3GaplessInfo(header,bytes){
+ const ver=(bytes[1]>>3)&3,mono=((bytes[3]>>6)&3)===3;
+ const crc=(bytes[1]&1)?0:2;
+ const side=ver===3?(mono?17:32):(mono?9:17);
+ const at=4+crc+side;
+ const ascii=i=>String.fromCharCode(...bytes.subarray(i,i+4));
+ if(at+8>bytes.length||!['Xing','Info'].includes(ascii(at)))
+  return {leadSamples:0,tailSamples:0,nativeSampleCount:null,mode:'raw-mp3'};
+ if(ver!==3||header.frameSamples!==1152)
+  throw new StreamingUnavailable('Gapless MPEG version has no verified native time mapping');
+ const flags=((bytes[at+4]<<24)>>>0)|(bytes[at+5]<<16)|(bytes[at+6]<<8)|bytes[at+7];
+ let pos=at+8,frames=null;
+ if(flags&1){if(pos+4>bytes.length)throw new StreamingUnavailable('Incomplete Xing frame count');
+  frames=((bytes[pos]<<24)>>>0)|(bytes[pos+1]<<16)|(bytes[pos+2]<<8)|bytes[pos+3];pos+=4}
+ if(flags&2)pos+=4;
+ if(flags&4)pos+=100;
+ if(flags&8)pos+=4;
+ if(pos+24>bytes.length)throw new StreamingUnavailable('Missing Xing encoder gapless metadata');
+ const encoder=ascii(pos);
+ if(!['LAME','Lavc','Lavf'].includes(encoder))
+  throw new StreamingUnavailable('Unknown MP3 gapless encoder; use native full decode');
+ const delay=(bytes[pos+21]<<4)|(bytes[pos+22]>>4);
+ const padding=((bytes[pos+22]&15)<<8)|bytes[pos+23];
+ if(delay<1||delay>2000||padding<529||padding>4095||!frames||frames>10000000)
+  throw new StreamingUnavailable('Unverified Xing encoder delay or padding');
+ // Native browser decoder removes the Xing header frame plus 529 synthesis
+ // delay samples from the head, with the corresponding 529 removed from pad.
+ const leadSamples=1152+delay+529,tailSamples=padding-529;
+ const nativeSampleCount=(frames+1)*1152-leadSamples-tailSamples;
+ if(nativeSampleCount<=0)throw new StreamingUnavailable('Invalid gapless duration');
+ return {leadSamples,tailSamples,nativeSampleCount,encoder,mode:'xing-gapless-verified'};
+}
+
+
 async function id3Offset(f){
  const h=new Uint8Array(await read(f,0,Math.min(10,f.size)));
  if(h.length<10||String.fromCharCode(...h.subarray(0,3))!=='ID3')return 0;
