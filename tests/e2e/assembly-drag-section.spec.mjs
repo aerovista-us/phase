@@ -68,16 +68,11 @@ test('Mix & Sync drag previews cheaply, Escape cancels, Shift enables free move,
  await page.keyboard.press('Escape');await page.mouse.up();
  await expect(lane).not.toHaveClass(/move-active/);
  expect(await page.locator('#offset-0').inputValue()).toBe(before);
+ // Escape may also return Phase to SELECT; choose MOVE explicitly for the next edit.
+ await page.locator('.mode[data-mode="move"]').click();
  await page.mouse.move(x,y);await page.mouse.down();
  await page.keyboard.down('Shift');await page.mouse.move(x+130,y,{steps:5});
- console.log('SECOND DRAG',JSON.stringify(await page.evaluate(({x,y})=>({
-  mode:document.querySelector('.mode[data-mode="move"]')?.className,
-  target:document.elementFromPoint(x,y)?.className,
-  laneClass:document.querySelector('#lane-0')?.className,
-  preview:document.querySelector('#lane-0')?.style.getPropertyValue('--phase-drag-preview'),
-  status:document.querySelector('#engineState')?.textContent,
-  offset:document.querySelector('#offset-0')?.value
- }),{x:x+130,y})));
+ await expect(lane).toHaveClass(/move-active/);
  await page.mouse.up();await page.keyboard.up('Shift');
  const current=Number(await page.locator('#offset-0').inputValue());
  expect(current).toBeGreaterThan(Number(before)+.1);
