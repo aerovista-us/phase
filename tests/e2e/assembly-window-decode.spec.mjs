@@ -19,8 +19,9 @@ test('Master Assembly reads only the original late WAV clip for playback and exp
  test.setTimeout(75000);
  const errors=[];page.on('pageerror',e=>errors.push(String(e.message)));
  await page.goto('http://127.0.0.1:4173/assembly.html',{waitUntil:'networkidle'});
+ const original=wav();
  await page.locator('#source-files').setInputFiles([{
-  name:'long-original.wav',mimeType:'audio/wav',buffer:wav()
+  name:'long-original.wav',mimeType:'audio/wav',buffer:original
  }]);
  await expect(page.locator('.source-status')).toContainText('streamed-pcm-wav',{timeout:30000});
  await page.locator('.range-out').fill('32.75');
@@ -50,6 +51,19 @@ test('Master Assembly reads only the original late WAV clip for playback and exp
  expect(output.readUInt32LE(24)).toBe(44100);
  expect(output.length).toBeGreaterThan(260000);
  expect(output.length).toBeLessThan(270000);
+ // Untouched PCM content must come from the correct late source samples, with the existing .92 master gain.
+ const sampleRate=44100,first=Math.round(31.25*sampleRate),start=Math.round(.25*sampleRate);
+ let dot=0,energy=0,errorEnergy=0;
+ for(let i=start;i<start+4096;i++){
+  const sourceSample=original.readInt16LE(44+(first+i)*4);
+  const expected=.92*sourceSample;
+  const actual=output.readInt16LE(44+i*4);
+  dot+=actual*expected;energy+=expected*expected;
+  errorEnergy+=(actual-expected)*(actual-expected);
+ }
+ const fidelity=Math.sqrt(errorEnergy/4096);
+ expect(fidelity).toBeLessThan(8);
+ expect(dot/energy).toBeGreaterThan(.998);
  const telemetry=await page.evaluate(()=>({max:window.__maxWindowRead,whole:window.__fullFileReadCount}));
  expect(telemetry.max).toBeLessThanOrEqual(262144);
  expect(telemetry.whole).toBe(0);
