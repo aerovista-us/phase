@@ -275,7 +275,7 @@ $('export-section').onclick=async()=>{
   const prepared=await prepareAssemblyItems(clips,sourceById,{
    context:aud(),loadFullBuffer:bufferFor,from:range.start,to:range.end
   });
-  const buffer=await renderMixRegion(prepared.items,range.start,range.end,rate);
+  const buffer=await renderMixRegion(prepared.items,range.start,range.end,rate,{frameCount:range.frames,allowSilence:true});
   downloadWav(buffer,sectionFilename(range.start,range.end));
   status('Section WAV exported · '+fmt(range.start)+' → '+fmt(range.end)+' · '+rate+' Hz, PCM 16-bit');
  }catch(err){status('Section export failed: '+err.message,true)}

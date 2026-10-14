@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {readFile} from 'node:fs/promises';
 
 function wav(seconds=9,rate=48000){
  const n=Math.round(seconds*rate),b=Buffer.alloc(44+n*4);
@@ -105,4 +106,19 @@ test('tablet source deck and exact-time inputs remain contained and readable',as
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect((await page.locator('.range-in').boundingBox()).width).toBeGreaterThanOrEqual(100);
  await page.screenshot({path:testInfo.outputPath('tablet-assembly.png'),fullPage:true});
+});
+
+test('section export preserves 221 validated frames and exports an interior silent gap',async({page})=>{
+ await page.goto('http://127.0.0.1:4173/assembly.html',{waitUntil:'networkidle'});
+ await page.locator('#source-files').setInputFiles([{name:'sample-grid.wav',mimeType:'audio/wav',buffer:wav(1,44100)}]);
+ await expect(page.locator('.add')).toBeEnabled();await page.locator('.add').click();
+ await page.locator('#section-in').fill('0');await page.locator('#section-out').fill('.005');
+ let pending=page.waitForEvent('download');await page.locator('#export-section').click();
+ let bytes=await readFile(await (await pending).path());expect(bytes.readUInt32LE(40)/4).toBe(221);
+ await page.locator('.add').click();await page.locator('#clip-start').fill('4');await page.locator('#clip-start').dispatchEvent('change');
+ // [0,1] and [4,5]: the exported interval lies wholly inside an interior gap.
+ await page.locator('#section-in').fill('1.25');await page.locator('#section-out').fill('1.75');
+ pending=page.waitForEvent('download');await page.locator('#export-section').click();
+ bytes=await readFile(await (await pending).path());expect(bytes.readUInt32LE(40)/4).toBe(22050);
+ expect(bytes.subarray(44).every(value=>value===0)).toBe(true);
 });
