@@ -34,3 +34,5 @@ select{background:#152638;color:#e9f2ff;border:1px solid #58718b;border-radius:7
 .section-export{margin:0 0 12px;border:1px solid #36536a;border-radius:8px;background:#142b3b;padding:8px}
 .section-export #export-section{background:#206a75}
 .section-export input{width:100px}
+
+@media(max-width:520px){.source-actions input{width:93px;min-width:93px}.source-actions{gap:8px}.source-card{grid-template-columns:minmax(0,1fr)}}
