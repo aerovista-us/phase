@@ -39,6 +39,9 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
+      - name: Install MP3 fixture encoder (test runner only)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+
       - name: Prepare local validated build metadata
         run: |
           VERSION=$(grep -oE 'ALPHA [0-9]+\.[0-9]+\.[0-9]+' index.html | head -1 | awk '{print $2}')
