@@ -1,5 +1,6 @@
 import{newClip,clipDuration,clipEnd,projectDuration,insertClip,splitClip,removeClip,moveClip,updateFade,saveAssembly,restoreAssembly,quantize}from'./assembly-model.js';
 import{buildWavePyramid,drawWave,drawRawSamples}from'./assembly-waveform.js';
+import{indexAudioPeaks,StreamingUnavailable}from'./assembly-peak-indexer.js';
 import{renderMix,downloadWav}from'./export.js';
 import{applyGainEnvelope}from'./fade-model.js';
 import{findQuietZeroCrossing,autoCrossfade,snapOutgoingEnd,slipIncomingStart}from'./splice-precision.js';
@@ -26,14 +27,33 @@ function updateRange(s){const card=document.querySelector('[data-source="'+s.id+
  card.querySelector('.source-range').style.width=((s.outSec-s.inSec)/s.duration*100)+'%';
  card.querySelector('.range-in').value=s.inSec.toFixed(6);card.querySelector('.range-out').value=s.outSec.toFixed(6);}
 async function indexSource(s,file){
- const context=aud();const estimated=file.size*12;
- if(estimated>400*1024*1024&&!confirm('This file may require considerable temporary decode memory. Index it anyway?'))return;
- status('Indexing '+file.name+' · building detailed min/max waveforms…');
- const buffer=await context.decodeAudioData(await file.arrayBuffer());
- s.file=file;s.name=file.name;s.duration=buffer.duration;s.sampleRate=buffer.sampleRate;
- s.pyramid=buildWavePyramid(buffer);s.inSec=0;s.outSec=Math.min(s.duration,15);s.ready=true;
- // Only the compact peak pyramid and original File persist: decoded PCM is temporary until playback/export.
- updateUI();status('Indexed '+file.name+' ('+fmt(s.duration)+'). Original file retained; decoded preview released.');
+ status('Indexing '+file.name+' · streaming waveform peaks in bounded chunks…');
+ let result;
+ try{
+  result=await indexAudioPeaks(file,{onProgress:p=>{
+   if(p>=.99||Math.round(p*10)!==Math.round((p-.008)*10))
+    status('Indexing '+file.name+' · '+Math.round(p*100)+'% streamed');
+  }});
+ }catch(err){
+  // Unsupported containers/codecs can use the preexisting path, but never call it lightweight.
+  // Cap fallback memory before reading the entire compressed file into an AudioBuffer.
+  if(!(err instanceof StreamingUnavailable) && !/MP3|decoder|decode/i.test(err.message))throw err;
+  const estimated=file.size*12;
+  if(estimated>400*1024*1024)
+   throw new Error('No memory-safe streaming decoder available for this file. Use PCM WAV or a supported MP3.');
+  status('Streaming decoder unavailable · full-decode compatibility mode for '+file.name);
+  const buffer=await aud().decodeAudioData(await file.arrayBuffer());
+  const pyramid=buildWavePyramid(buffer);
+  result={pyramid,duration:buffer.duration,sampleRate:buffer.sampleRate,mode:'full-decode-fallback',
+   peakBytes:pyramid.levels[0].min.byteLength+pyramid.levels[0].max.byteLength};
+ }
+ // Original File is preserved; only min/max waveform summaries remain after indexing.
+ s.file=file;s.name=file.name;s.duration=result.duration;s.sampleRate=result.sampleRate;
+ s.pyramid=result.pyramid;s.inSec=0;s.outSec=Math.min(s.duration,15);s.ready=true;
+ s.indexMode=result.mode;s.peakBytes=result.peakBytes;
+ updateUI();
+ const label=result.mode==='full-decode-fallback'?'compatibility full-decode':'streaming';
+ status('Indexed '+file.name+' ('+fmt(s.duration)+') using '+label+' · '+Math.round(result.peakBytes/1024)+' KiB min/max peaks retained.');
 }
 async function addFiles(fileList){
  for(const file of fileList){if(!file.type.startsWith('audio/')&&!/\.(mp3|wav|m4a|flac|ogg)$/i.test(file.name)){status('Unsupported audio type: '+file.name,true);continue;}
@@ -49,7 +69,7 @@ function renderSourceCards(){
  const card=document.createElement('div');card.className='source-card'+(s.id===currentSource?' active':'');card.dataset.source=s.id;
  card.innerHTML='<div><div class="source-name"></div><div class="source-status"></div></div><div class="source-wave" title="Click to set IN; Shift-click to set OUT"><canvas></canvas><div class="source-range"></div></div><div class="source-actions"><label>IN <input class="range-in" type="number" min="0" step="any"></label><label>OUT <input class="range-out" type="number" min="0" step="any"></label><button class="audition">▶ SOLO</button><button class="add">↑ APPEND</button><button class="insert">INSERT @ PLAYHEAD</button></div>';
  card.querySelector('.source-name').textContent=s.name;
- card.querySelector('.source-status').textContent=s.ready?fmt(s.duration)+' · '+s.sampleRate+' Hz · indexed':'RELINK AUDIO REQUIRED';
+ card.querySelector('.source-status').textContent=s.ready?fmt(s.duration)+' · '+s.sampleRate+' Hz · '+(s.indexMode==='full-decode-fallback'?'compatibility decode':s.indexMode||'indexed'):'RELINK AUDIO REQUIRED';
  root.append(card);
  if(!s.ready){card.querySelectorAll('button,input').forEach(x=>x.disabled=true);continue}
  const canvas=card.querySelector('canvas');
