@@ -79,6 +79,42 @@ export function mp3Header(u,i=0){
  if(len<24||len>2048)return null;
  return {length:len,sampleRate:sr,channels:((u[i+3]>>6)&3)===3?1:2,frameSamples:ver===3?1152:576};
 }
+// Frame-accurate MP3 native timeline mapping for recognized Xing/Info + LAME/Lavc tags.
+// Unrecognized gapless headers fail closed rather than producing time-shifted master audio.
+export function mp3GaplessInfo(header,bytes){
+ const ver=(bytes[1]>>3)&3,mono=((bytes[3]>>6)&3)===3;
+ const crc=(bytes[1]&1)?0:2;
+ const side=ver===3?(mono?17:32):(mono?9:17);
+ const at=4+crc+side;
+ const ascii=i=>String.fromCharCode(...bytes.subarray(i,i+4));
+ if(at+8>bytes.length||!['Xing','Info'].includes(ascii(at)))
+  return {leadSamples:0,tailSamples:0,nativeSampleCount:null,mode:'raw-mp3'};
+ if(ver!==3||header.frameSamples!==1152)
+  throw new StreamingUnavailable('Gapless MPEG version has no verified native time mapping');
+ const flags=((bytes[at+4]<<24)>>>0)|(bytes[at+5]<<16)|(bytes[at+6]<<8)|bytes[at+7];
+ let pos=at+8,frames=null;
+ if(flags&1){if(pos+4>bytes.length)throw new StreamingUnavailable('Incomplete Xing frame count');
+  frames=((bytes[pos]<<24)>>>0)|(bytes[pos+1]<<16)|(bytes[pos+2]<<8)|bytes[pos+3];pos+=4}
+ if(flags&2)pos+=4;
+ if(flags&4)pos+=100;
+ if(flags&8)pos+=4;
+ if(pos+24>bytes.length)throw new StreamingUnavailable('Missing Xing encoder gapless metadata');
+ const encoder=ascii(pos);
+ if(!['LAME','Lavc','Lavf'].includes(encoder))
+  throw new StreamingUnavailable('Unknown MP3 gapless encoder; use native full decode');
+ const delay=(bytes[pos+21]<<4)|(bytes[pos+22]>>4);
+ const padding=((bytes[pos+22]&15)<<8)|bytes[pos+23];
+ if(delay<1||delay>2000||padding<529||padding>4095||!frames||frames>10000000)
+  throw new StreamingUnavailable('Unverified Xing encoder delay or padding');
+ // Native browser decoder removes the Xing header frame plus 529 synthesis
+ // delay samples from the head, with the corresponding 529 removed from pad.
+ const leadSamples=1152+delay+529,tailSamples=padding-529;
+ const nativeSampleCount=(frames+1)*1152-leadSamples-tailSamples;
+ if(nativeSampleCount<=0)throw new StreamingUnavailable('Invalid gapless duration');
+ return {leadSamples,tailSamples,nativeSampleCount,encoder,mode:'xing-gapless-verified'};
+}
+
+
 async function id3Offset(f){
  const h=new Uint8Array(await read(f,0,Math.min(10,f.size)));
  if(h.length<10||String.fromCharCode(...h.subarray(0,3))!=='ID3')return 0;
@@ -88,13 +124,20 @@ async function id3Offset(f){
 export async function indexMp3(f,{chunkBytes=262144,onProgress}={}){
  if(typeof AudioDecoder==='undefined'||typeof EncodedAudioChunk==='undefined')
   throw new StreamingUnavailable('WebCodecs unavailable');
- let cursor=0,offset=await id3Offset(f),pending=new Uint8Array(0),decoder=null,err=null,rate=0,channels=0,frames=0;
+ let cursor=0,offset=await id3Offset(f),pending=new Uint8Array(0),decoder=null,err=null,rate=0,channels=0,frames=0,rawDecoded=0,gapless=null;
  const peaks=collector();
  const output=a=>{
   try{
    const planes=[];
    for(let c=0;c<a.numberOfChannels;c++){const d=new Float32Array(a.numberOfFrames);a.copyTo(d,{planeIndex:c,format:'f32-planar'});planes.push(d)}
-   for(let i=0;i<a.numberOfFrames;i++)peaks.sample(planes.map(v=>v[i]));
+   for(let i=0;i<a.numberOfFrames;i++){
+    const frame=rawDecoded+i;
+    if(frame<gapless.leadSamples)continue;
+    if(gapless.nativeSampleCount!=null&&
+      frame>=gapless.leadSamples+gapless.nativeSampleCount)continue;
+    peaks.sample(planes.map(v=>v[i]));
+   }
+   rawDecoded+=a.numberOfFrames;
   }catch(e){err=e}finally{a.close()}
  };
  try{
@@ -118,17 +161,35 @@ export async function indexMp3(f,{chunkBytes=262144,onProgress}={}){
     if(!(await AudioDecoder.isConfigSupported(config)).supported)
      throw new StreamingUnavailable('Native MP3 decoder unsupported');
     rate=h.sampleRate;channels=h.channels;
+    gapless=mp3GaplessInfo(h,pending.slice(cursor,cursor+h.length));
     decoder=new AudioDecoder({output,error:e=>{err=e}});decoder.configure(config);
    }
    if(h.sampleRate!==rate||h.channels!==channels)throw new Error('MP3 sample configuration changed');
    const timestamp=Math.round(frames*h.frameSamples*1e6/rate);
    decoder.decode(new EncodedAudioChunk({type:'key',timestamp,data:pending.subarray(cursor,cursor+h.length)}));
    cursor+=h.length;frames++;
-   if(frames%24===0){await decoder.flush();if(err)throw err;if(onProgress)onProgress(offset/f.size)}
+   if(frames%24===0){
+    // Preserve bit-reservoir continuity: flush only once, at end of stream.
+    while(decoder.decodeQueueSize>8){
+     await new Promise((resolve,reject)=>{
+      const timeout=setTimeout(()=>{decoder.removeEventListener('dequeue',done);
+       reject(new Error('MP3 peak index decoder stalled'))},5000);
+      const done=()=>{clearTimeout(timeout);decoder.removeEventListener('dequeue',done);resolve()};
+      decoder.addEventListener('dequeue',done,{once:true});
+      if(decoder.decodeQueueSize<=8)done();
+     });
+    }
+    if(err)throw err;
+    if(onProgress)onProgress(offset/f.size);
+   }
   }
   if(!decoder||frames<2)throw Error('No MP3 frames decoded');
   await decoder.flush();if(err)throw err;if(onProgress)onProgress(1);
-  return {...peaks.finish(rate),mode:'streamed-webcodecs-mp3',channels,compressedFrames:frames,bytesRead:f.size};
+  const indexed=peaks.finish(rate);
+  if(gapless.nativeSampleCount!=null&&indexed.sampleCount!==gapless.nativeSampleCount)
+   throw new StreamingUnavailable('MP3 gapless sample count differs from Xing metadata');
+  return {...indexed,mode:'streamed-webcodecs-mp3',channels,
+   compressedFrames:frames,bytesRead:f.size,gapless};
  }finally{if(decoder&&decoder.state!=='closed')decoder.close()}
 }
 export async function indexAudioPeaks(file,opts={}){

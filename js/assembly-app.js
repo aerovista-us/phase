@@ -50,7 +50,7 @@ async function indexSource(s,file){
    peakBytes:pyramid.levels[0].min.byteLength+pyramid.levels[0].max.byteLength};
  }
  // Original File is preserved; only min/max waveform summaries remain after indexing.
- s.file=file;s.name=file.name;s.duration=result.duration;s.sampleRate=result.sampleRate;
+ s.file=file;s.name=file.name;s.duration=result.duration;s.sampleRate=result.sampleRate;s.channels=result.channels||2;
  s.pyramid=result.pyramid;s.inSec=0;s.outSec=Math.min(s.duration,15);s.ready=true;
  s.indexMode=result.mode;s.peakBytes=result.peakBytes;
  updateUI();
@@ -168,7 +168,7 @@ async function playMaster(time=null,windowEnd=null){
   if(last)last.onended=()=>{if(token!==playToken)return;live=[];
    for(const s of sources)s.buffer=null;$('play-master').textContent='▶ PLAY MASTER'};
   $('play-master').textContent='■ STOP MASTER';
-  const bounded=prepared.items.filter(i=>i.mode==='windowed-original-pcm-wav').length;
+  const bounded=prepared.items.filter(i=>i.mode==='windowed-original-pcm-wav'||i.mode==='sequential-webcodecs-mp3-window').length;
   status('Playing master · '+bounded+' original PCM windows · from '+fmt(t));
  }catch(err){if(token===playToken)status('Playback: '+err.message,true)}
  finally{busy=false}
@@ -183,7 +183,7 @@ async function exportMaster(){
    const prepared=await prepareAssemblyItems(clips,sourceById,{context:aud(),loadFullBuffer:bufferFor});
    const buf=await renderMix(prepared.items,rate);
    downloadWav(buf,'phase-master-assembly.wav');
-   const bounded=prepared.items.filter(i=>i.mode==='windowed-original-pcm-wav').length;
+   const bounded=prepared.items.filter(i=>i.mode==='windowed-original-pcm-wav'||i.mode==='sequential-webcodecs-mp3-window').length;
    status('Master WAV exported · '+fmt(buf.duration)+' at '+rate+' Hz, PCM 16-bit · '+bounded+' windowed source clips.')}
  catch(err){status('Export failed: '+err.message,true)}finally{busy=false;for(const s of sources)s.buffer=null}
 }

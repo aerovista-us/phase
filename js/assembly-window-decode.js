@@ -1,6 +1,7 @@
 // Read only the PCM samples occupied by a Master Assembly clip.
 // Never use display waveform peaks as a substitute for original audio.
 import {readWavMetadata,readPcmSample,StreamingUnavailable} from './assembly-peak-indexer.js';
+import {decodeMp3Window} from './assembly-mp3-window.js';
 
 export const MAX_WINDOW_BYTES=96*1024*1024;
 const META=new WeakMap();
@@ -73,6 +74,9 @@ export async function prepareAssemblyItems(clips,getSource,{
   if(s.indexMode==='streamed-pcm-wav'){
    const m=await wavInfo(s.file);
    plannedBytes+=(Math.round(w.sourceEnd*m.sampleRate)-Math.round(w.sourceStart*m.sampleRate))*m.channels*4;
+  }else if(s.indexMode==='streamed-webcodecs-mp3'){
+   const frames=Math.round(w.sourceEnd*s.sampleRate)-Math.round(w.sourceStart*s.sampleRate);
+   plannedBytes+=frames*Math.max(1,s.channels||2)*4;
   }else if(!seenFull.has(c.sourceId)){
    seenFull.add(c.sourceId);
    plannedBytes+=Math.ceil(s.duration*s.sampleRate*8); // Conservative two-channel fallback.
@@ -80,23 +84,38 @@ export async function prepareAssemblyItems(clips,getSource,{
   if(plannedBytes>maxTotalBytes)throw new Error('Assembly decode budget exceeded. Use shorter source clips.');
  }
  const result=[];
+ const asFullItem=(c,s,buffer)=>({clipId:c.id,buffer,offset:c.masterStart-c.sourceIn,
+  sourceIn:c.sourceIn,sourceOut:c.sourceOut,...commonClipItem(c),
+  fadeInStart:c.sourceIn,fadeInEnd:c.sourceIn+c.fadeInSec,
+  fadeOutStart:c.sourceOut-c.fadeOutSec,fadeOutEnd:c.sourceOut,
+  mode:'compatibility-full-source'});
+ const asWindowItem=(c,w,segment)=>({clipId:c.id,buffer:segment.buffer,
+  offset:w.begin,sourceIn:0,sourceOut:segment.buffer.duration,...commonClipItem(c),
+  fadeInStart:c.masterStart-w.begin,fadeInEnd:c.masterStart+c.fadeInSec-w.begin,
+  fadeOutStart:c.masterStart+(c.sourceOut-c.sourceIn)-c.fadeOutSec-w.begin,
+  fadeOutEnd:c.masterStart+(c.sourceOut-c.sourceIn)-w.begin,
+  mode:segment.mode});
  for(const {c,w} of active){
-  const s=getSource(c.sourceId),common=commonClipItem(c);
+  const s=getSource(c.sourceId);
   if(s.indexMode==='streamed-pcm-wav'){
    const segment=await decodeWavWindow(s.file,{startSec:w.sourceStart,endSec:w.sourceEnd,context});
-   result.push({clipId:c.id,buffer:segment.buffer,offset:w.begin,sourceIn:0,
-    sourceOut:segment.buffer.duration,...common,
-    fadeInStart:c.masterStart-w.begin,fadeInEnd:c.masterStart+c.fadeInSec-w.begin,
-    fadeOutStart:c.masterStart+(c.sourceOut-c.sourceIn)-c.fadeOutSec-w.begin,
-    fadeOutEnd:c.masterStart+(c.sourceOut-c.sourceIn)-w.begin,
-    mode:segment.mode});
+   result.push(asWindowItem(c,w,segment));
+  }else if(s.indexMode==='streamed-webcodecs-mp3'){
+   try{
+    const segment=await decodeMp3Window(s.file,{startSec:w.sourceStart,endSec:w.sourceEnd,context});
+    result.push(asWindowItem(c,w,segment));
+   }catch(error){
+    // Unsupported browser/unknown gapless tag: preserve native decode authority.
+    if(!(error instanceof StreamingUnavailable))throw error;
+    const bytes=Math.ceil(s.duration*s.sampleRate*Math.max(2,s.channels||2)*4);
+    if(bytes>maxTotalBytes||plannedBytes+bytes>maxTotalBytes)
+     throw new Error('Unsupported MP3 window decoder and full native fallback exceeds memory budget. Convert source to PCM WAV.');
+    const buffer=await loadFullBuffer(s);
+    result.push(asFullItem(c,s,buffer));
+   }
   }else{
    const buffer=await loadFullBuffer(s);
-   result.push({clipId:c.id,buffer,offset:c.masterStart-c.sourceIn,
-    sourceIn:c.sourceIn,sourceOut:c.sourceOut,...common,
-    fadeInStart:c.sourceIn,fadeInEnd:c.sourceIn+c.fadeInSec,
-    fadeOutStart:c.sourceOut-c.fadeOutSec,fadeOutEnd:c.sourceOut,
-    mode:'compatibility-full-source'});
+   result.push(asFullItem(c,s,buffer));
   }
  }
  return {items:result,plannedBytes};

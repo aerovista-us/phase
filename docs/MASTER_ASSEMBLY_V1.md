@@ -71,3 +71,20 @@ GitHub Pages is triggered only on merge to `main`. Deploy artifact now includes 
 - No remote upload, catalog mutation, client-permission change, or edits to Mix & Sync.
 
 **Release acceptance:** Pure Node tests of exact sample alignment, bounded reads, re-based fades, seek windows, unavailable-source and memory limit behavior; Chromium import/play/PCM WAV export of a late region without original full-file reading; existing Mix & Sync regressions. Additional listening quality review is separate.
+
+## 0.14.4 — Bounded MP3 master windows
+
+### Source authority and gapless alignment
+
+- MP3 peak indexing and clip-window decoding now use the same **native decoder PCM timeline**. For Xing/Info gapless headers with verifiable LAME/Lavc metadata, both apply source lead trim = first Xing frame (1152 MPEG-1 samples) + encoder delay + 529 synthesis samples. Encoded pad is handled correspondingly; native sample count comes from the Xing frame count and verified delay/padding fields. Unknown gapless metadata fails closed to original browser native full decode.
+- For MP3 without a recognized Xing header, the decoder uses the raw frame timeline, matching existing Chromium native decode in the tested CBR/VBR fixtures. This is a supported behavior for the tested formats, not a guarantee for all MP3 metadata variants.
+- The MP3 decode queue stays bounded by waiting for queue drain; **do not flush every 24 frames**, which creates audible/artifact discrepancies from lost decoder continuity.
+- Bounded `File.slice()` reads and sequential compressed-frame scan from the start retain only the selected clip's float PCM. A 96 MiB per-window cap and aggregate assembly preflight remain. This is **not random access**: late segments still scan/decode earlier compressed frames. Native original MP3 files remain immutable.
+- Master Assembly reuses the existing clip fade and `renderMix` contracts. If the browser lacks a supported incremental decoder, it may fall back to authoritative `decodeAudioData()` with a strict memory ceiling; it must never present peak-index data as render-quality samples.
+- WAV window decoding remains as in 0.14.3. Other formats use native compatibility decode. Mix & Sync is unchanged.
+
+### Validation evidence and remaining gates
+
+- Node unit tests: sample-bound decoder, MP3 frame read bounds, Xing/Lavc encoder-delay mapping and safe failure behavior.
+- Chromium: source clip outputs and indexed waveform extrema/duration match `decodeAudioData` *exactly* on test CBR, VBR and seekable gapless VBR files after handling decoder continuity. Additional integration test verifies a late, short MP3 segment can be played and exported without whole-file decoded source allocation, and compares exported waveform samples with the authoritative native decoder.
+- Exact PR-head CI must remain green before merge; generated fixture tests do not constitute real-recording listening QA or hardware performance profiling. Unknown MP3 encoder metadata and malformed streams must continue to use a safe native fallback or fail closed.
