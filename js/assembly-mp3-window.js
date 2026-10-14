@@ -1,7 +1,7 @@
 // Phase experimental MP3 window decoder. Sequential scan: bounded decoded PCM,
 // not random access. Native decoder gapless/sample alignment needs independent proof.
 import {mp3Header,mp3GaplessInfo,StreamingUnavailable} from './assembly-peak-indexer.js';
-import {MAX_WINDOW_BYTES} from './assembly-window-decode.js';
+const MAX_WINDOW_BYTES=96*1024*1024;
 
 async function read(file,a,b){return new Uint8Array(await file.slice(a,b).arrayBuffer())}
 async function id3End(file){
