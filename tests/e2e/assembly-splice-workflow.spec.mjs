@@ -66,6 +66,16 @@ test('losing pointer capture cancels both editors without committing offsets',as
  await expect(lane).not.toHaveClass(/move-active/);await expect(page.locator('#offset-0')).toHaveValue(offset);
 });
 
+test('Escape cancels armed source placement while a numeric input has focus',async({page})=>{
+ await load(page);await page.locator('.place-source').click();
+ await expect(page.locator('#cancel-placement')).toBeVisible();
+ await page.locator('.range-in').focus();await page.keyboard.press('Escape');
+ await expect(page.locator('#cancel-placement')).toBeHidden();
+ await expect(page.locator('#notice')).toContainText('Source placement canceled');
+ await page.locator('#master-lane').click({position:{x:30,y:65}});
+ await expect(page.locator('.master-clip')).toHaveCount(0);
+});
+
 test('native touch source placement inserts once and cancellation is nondestructive',async({browser})=>{
  const context=await browser.newContext({hasTouch:true,viewport:{width:390,height:844}});
  const page=await context.newPage();
