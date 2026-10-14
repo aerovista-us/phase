@@ -72,10 +72,19 @@ GitHub Pages is triggered only on merge to `main`. Deploy artifact now includes 
 
 **Release acceptance:** Pure Node tests of exact sample alignment, bounded reads, re-based fades, seek windows, unavailable-source and memory limit behavior; Chromium import/play/PCM WAV export of a late region without original full-file reading; existing Mix & Sync regressions. Additional listening quality review is separate.
 
-## 0.14.4 — Experimental MP3 window decoding (NOT deployed)
+## 0.14.4 — Bounded MP3 master windows (candidate, not deployed)
 
-The new `assembly-mp3-window.js` prototype scans MP3 compressed frames **sequentially from the beginning**, processes them through browser WebCodecs and keeps only the requested original-quality PCM interval in an `AudioBuffer`. This avoids retaining full-song decoded PCM but **is not random access**: late sections still require parsing/decoding earlier compressed audio. It enforces a decoded-output memory limit, compressed scan limit, bounded Blob reads and a bounded decoder queue via periodic flush.
+### Source authority and gapless alignment
 
-**Critical authority gate:** MP3 encoder delay, gapless padding and native browser decoder behavior can shift the musical timeline. The experiment compares short and late windows from CBR/VBR fixtures against the browser's authoritative `decodeAudioData` output and records the best sample offset and correlation. This module is **not wired into production master playback or export** until sample alignment can be established and an explicit safe fallback is supported.
+- MP3 peak indexing and clip-window decoding now use the same **native decoder PCM timeline**. For Xing/Info gapless headers with verifiable LAME/Lavc metadata, both apply source lead trim = first Xing frame (1152 MPEG-1 samples) + encoder delay + 529 synthesis samples. Encoded pad is handled correspondingly; native sample count comes from the Xing frame count and verified delay/padding fields. Unknown gapless metadata fails closed to original browser native full decode.
+- For MP3 without a recognized Xing header, the decoder uses the raw frame timeline, matching existing Chromium native decode in the tested CBR/VBR fixtures. This is a supported behavior for the tested formats, not a guarantee for all MP3 metadata variants.
+- The MP3 decode queue stays bounded by waiting for queue drain; **do not flush every 24 frames**, which creates audible/artifact discrepancies from lost decoder continuity.
+- Bounded `File.slice()` reads and sequential compressed-frame scan from the start retain only the selected clip's float PCM. A 96 MiB per-window cap and aggregate assembly preflight remain. This is **not random access**: late segments still scan/decode earlier compressed frames. Native original MP3 files remain immutable.
+- Master Assembly reuses the existing clip fade and `renderMix` contracts. If the browser lacks a supported incremental decoder, it may fall back to authoritative `decodeAudioData()` with a strict memory ceiling; it must never present peak-index data as render-quality samples.
+- WAV window decoding remains as in 0.14.3. Other formats use native compatibility decode. Mix & Sync is unchanged.
 
-No waveform proxy enters rendering, source files are immutable, and Phase 0.14.3 Mix & Sync, WAV windows and existing MP3 master export behavior are unchanged.
+### Evidence and release gates
+
+- Node unit tests: sample-bound decoder, MP3 frame read bounds, Xing/Lavc encoder-delay mapping and safe failure behavior.
+- Chromium: source clip outputs and indexed waveform extrema/duration match `decodeAudioData` *exactly* on test CBR, VBR and seekable gapless VBR files after handling decoder continuity. Additional integration test verifies a late, short MP3 segment can be played and exported without whole-file decoded source allocation, and compares exported waveform samples with the authoritative native decoder.
+- Still required before publishing: exact PR-head unit, browser and MP3-export smoke tests. Real recording QA is separate and cannot be claimed from generated fixtures. Unknown MP3 encoder metadata and malformed streams must continue to use a safe native fallback or fail closed.
