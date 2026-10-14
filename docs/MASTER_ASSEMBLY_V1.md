@@ -57,3 +57,17 @@ GitHub Pages is triggered only on merge to `main`. Deploy artifact now includes 
 - Waveform peak indices are limited to approximately 2 million 128-frame buckets (16 MiB base min/max arrays); compressed audio and other metadata require additional bounded overhead. Indexed source time may differ slightly from other MP3 decoders due to encoder padding/priming; check this using real-source browser fixtures.
 - **Not yet implemented:** partial original-quality master rendering/clip decoding, progressive waveform paints, or a browser codec path for FLAC/AAC/OGG. These remain separate performance gates.
 - Tests must verify exact waveform min/max preservation against decoded PCM, maximum file-slice size, complete-source coverage, normal browsing and MP3 compatibility/fallback, final original-quality WAV output, existing Mix & Sync regression and recovery service worker.
+
+## 0.14.3 — Bounded original PCM clip decode (candidate)
+
+**Authority:** waveform peaks and original PCM decode are separate. This milestone reduces *source decode* memory for supported PCM WAV files in Master Assembly master audition and WAV export; it does not change source file bytes or sample-rate authority. The renderer and gain-envelope contracts remain the same.
+
+- Clip preparation reads the exact sample-aligned `sourceIn .. sourceOut` window of a local original PCM WAV via `File.slice()`. Playback can narrow it further to the audible range after the playhead or for a join preview.
+- The reader supports the same validated RIFF PCM and IEEE float encodings as streamed waveform indexing (with a strict per-window 96 MiB decoded PCM budget). Reads remain bounded; native `AudioBuffer` is built only for selected source samples.
+- All clip windows retain native sample rate. Offline rendering uses the existing `renderMix` and Web Audio sample-rate conversion as necessary. Clip positions and fade curves are re-based to the segment's project position.
+- MP3, OGG, AAC, FLAC and unsupported WAV layouts continue to use the existing whole-source compatibility decode. These are **not** described as partial decoding. All sources are subject to an aggregate memory preflight.
+- Large full-length clips that exceed the per-window budget require splitting into shorter regions. The output offline mix and uncompressed WAV allocation are also still whole-arrangement allocations. Streaming final WAV output is *not* part of this milestone.
+- Normal solo uses the existing native media element. Sample-level Splice Inspector currently keeps its separate full-source native decode and memory guard; this milestone does not alter it.
+- No remote upload, catalog mutation, client-permission change, or edits to Mix & Sync.
+
+**Release acceptance:** Pure Node tests of exact sample alignment, bounded reads, re-based fades, seek windows, unavailable-source and memory limit behavior; Chromium import/play/PCM WAV export of a late region without original full-file reading; existing Mix & Sync regressions. Additional listening quality review is separate.
