@@ -4,6 +4,8 @@
 
 Live alpha: **https://phase.aerovista.us/**
 
+**Current advancement plan (Oct 14, 2026):** [Phase 0.14.6 product audit, outstanding risks and prioritized build roadmap](docs/PHASE_ADVANCEMENT_PLAN_2026-10-14.md). Track the six issues [#9–#14](https://github.com/aerovista-us/phase/issues). The next release should begin with existing Edge-profile / real-audio acceptance, then incrementally rendered full-master WAV output.
+
 
 ### Lightweight audio source loading (0.14.6)
 Selected PCM WAV master clips now play/render from bounded original sample windows; WebCodecs MP3 and PCM WAV use bounded source-window decoding where supported; other compressed formats retain native full-decode compatibility. PCM WAV waveforms are indexed from bounded slices without whole-track PCM decoding; MP3 uses browser WebCodecs where supported. The existing full-decode fallback is labeled rather than claimed to be lightweight. Original audio is still used for playback and export; [implementation limits](docs/MASTER_ASSEMBLY_V1.md) describe codec and memory constraints.
