@@ -1,3 +1,17 @@
+export function pyramidFromBuckets(min,max,blockSize,sampleRate,length){
+ if(!(min instanceof Float32Array)||!(max instanceof Float32Array)||!min.length||min.length!==max.length||blockSize<1||sampleRate<=0||length<=0)
+   throw Error('Invalid waveform buckets');
+ const levels=[{min,max,blockSize}];
+ while(min.length>1){
+  const n=Math.ceil(min.length/2),mi=new Float32Array(n),ma=new Float32Array(n);
+  for(let i=0;i<n;i++){
+   mi[i]=Math.min(min[2*i],min[2*i+1]??1);
+   ma[i]=Math.max(max[2*i],max[2*i+1]??-1);
+  }
+  blockSize*=2;min=mi;max=ma;levels.push({min,max,blockSize});
+ }
+ return {sampleRate,length,levels};
+}
 // Immutable multi-resolution min/max waveform tiles. Source audio never resampled for editing/export.
 export function buildWavePyramid(buffer,blockSize=128){
   if(!buffer?.length||!buffer?.numberOfChannels||blockSize<1)throw Error('Audio buffer required');
@@ -11,13 +25,7 @@ export function buildWavePyramid(buffer,blockSize=128){
     }
     min[i]=lo;max[i]=hi;
   }
-  const levels=[{min,max,blockSize}];
-  while(min.length>1){
-    const n=Math.ceil(min.length/2),mi=new Float32Array(n),ma=new Float32Array(n);
-    for(let i=0;i<n;i++){mi[i]=Math.min(min[i*2],min[i*2+1]??1);ma[i]=Math.max(max[i*2],max[i*2+1]??-1);}
-    blockSize*=2;min=mi;max=ma;levels.push({min,max,blockSize});
-  }
-  return {sampleRate:buffer.sampleRate,length:buffer.length,levels};
+  return pyramidFromBuckets(min,max,blockSize,buffer.sampleRate,buffer.length);
 }
 export function levelForView(pyramid,secondsPerPixel){
  const wanted=secondsPerPixel*pyramid.sampleRate;
