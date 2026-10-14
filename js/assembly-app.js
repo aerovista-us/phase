@@ -2,6 +2,7 @@ import{newClip,clipDuration,clipEnd,projectDuration,insertClip,splitClip,removeC
 import{buildWavePyramid,drawWave,drawRawSamples}from'./assembly-waveform.js';
 import{renderMix,downloadWav}from'./export.js';
 import{applyGainEnvelope}from'./fade-model.js';
+import{findQuietZeroCrossing,autoCrossfade,snapOutgoingEnd,slipIncomingStart}from'./splice-precision.js';
 
 const $=id=>document.getElementById(id);
 const fmt=s=>{const n=Math.max(0,s||0);return Math.floor(n/60)+':'+(n%60).toFixed(2).padStart(5,'0')};
@@ -46,7 +47,7 @@ function renderSourceCards(){
  if(!sources.length){root.innerHTML='<p class="empty">No sources yet. Add local audio files to begin.</p>';return;}
  for(const s of sources){
  const card=document.createElement('div');card.className='source-card'+(s.id===currentSource?' active':'');card.dataset.source=s.id;
- card.innerHTML='<div><div class="source-name"></div><div class="source-status"></div></div><div class="source-wave" title="Click to set IN; Shift-click to set OUT"><canvas></canvas><div class="source-range"></div></div><div class="source-actions"><label>IN <input class="range-in" type="number" min="0" step="0.001"></label><label>OUT <input class="range-out" type="number" min="0" step="0.001"></label><button class="audition">▶ SOLO</button><button class="add">↑ APPEND</button><button class="insert">INSERT @ PLAYHEAD</button></div>';
+ card.innerHTML='<div><div class="source-name"></div><div class="source-status"></div></div><div class="source-wave" title="Click to set IN; Shift-click to set OUT"><canvas></canvas><div class="source-range"></div></div><div class="source-actions"><label>IN <input class="range-in" type="number" min="0" step="any"></label><label>OUT <input class="range-out" type="number" min="0" step="any"></label><button class="audition">▶ SOLO</button><button class="add">↑ APPEND</button><button class="insert">INSERT @ PLAYHEAD</button></div>';
  card.querySelector('.source-name').textContent=s.name;
  card.querySelector('.source-status').textContent=s.ready?fmt(s.duration)+' · '+s.sampleRate+' Hz · indexed':'RELINK AUDIO REQUIRED';
  root.append(card);
@@ -123,7 +124,7 @@ async function withBuffers(){const used=[...new Set(clips.map(c=>c.sourceId))];
  if(sum>450*1024*1024)throw Error('Source decode estimate exceeds 450 MB. Reduce loaded sources or make shorter assemblies.');
  for(const id of used)await bufferFor(sourceById(id));
 }
-const items=()=>clips.map(c=>({buffer:sourceById(c.sourceId).buffer,offset:c.masterStart-c.sourceIn,sourceIn:c.sourceIn,sourceOut:c.sourceOut,gain:Math.pow(10,c.gainDb/20),group:'master',fadeInStart:c.sourceIn,fadeInEnd:c.sourceIn+c.fadeInSec,fadeOutStart:c.sourceOut-c.fadeOutSec,fadeOutEnd:c.sourceOut}));
+const items=()=>clips.map(c=>({buffer:sourceById(c.sourceId).buffer,offset:c.masterStart-c.sourceIn,sourceIn:c.sourceIn,sourceOut:c.sourceOut,gain:Math.pow(10,c.gainDb/20),group:'master',fadeInStart:c.sourceIn,fadeInEnd:c.sourceIn+c.fadeInSec,fadeOutStart:c.sourceOut-c.fadeOutSec,fadeOutEnd:c.sourceOut,fadeInCurve:c.fadeInCurve||c.fadeCurve||'linear',fadeOutCurve:c.fadeOutCurve||c.fadeCurve||'linear'}));
 async function playMaster(time=null,windowEnd=null){
  stop();if(!clips.length){status('Add clips to master first.',true);return}
  const t=Math.max(0,time??(Number($('playhead').value)||0));const context=aud();await context.resume();
@@ -134,7 +135,7 @@ async function playMaster(time=null,windowEnd=null){
    for(const c of list){const s=sourceById(c.sourceId),start=Math.max(t,c.masterStart),end=Math.min(clipEnd(c),windowEnd??Infinity);
      if(end<=start)continue;const b=context.createBufferSource(),g=context.createGain();
      b.buffer=s.buffer;b.connect(g).connect(context.destination);
-     const w={offset:c.masterStart-c.sourceIn,fadeInStart:c.sourceIn,fadeInEnd:c.sourceIn+c.fadeInSec,fadeOutStart:c.sourceOut-c.fadeOutSec,fadeOutEnd:c.sourceOut};
+     const w={offset:c.masterStart-c.sourceIn,fadeInStart:c.sourceIn,fadeInEnd:c.sourceIn+c.fadeInSec,fadeOutStart:c.sourceOut-c.fadeOutSec,fadeOutEnd:c.sourceOut,fadeInCurve:c.fadeInCurve||c.fadeCurve||'linear',fadeOutCurve:c.fadeOutCurve||c.fadeCurve||'linear'};
      applyGainEnvelope(g.gain,.88*Math.pow(10,c.gainDb/20),w,start,end,base+start-t);
      b.start(base+start-t,c.sourceIn+start-c.masterStart,end-start);live.push(b);if(end>latest){latest=end;last=b}
    }
@@ -170,6 +171,40 @@ $('split-clip').onclick=()=>{const c=selected();if(!c)return;try{snapshot();clip
 $('remove-clip').onclick=()=>{if(!selected())return;snapshot();clips=removeClip(clips,selectedId);selectedId=clips[0]?.id||null;updateUI()};
 $('undo').onclick=()=>{if(undoStack.length){clips=undoStack.pop();selectedId=clips.some(c=>c.id===selectedId)?selectedId:null;updateUI();status('Undid previous clip edit.')}};
 $('preview-join').onclick=$('join-play').onclick=()=>{const c=selected();if(c)playMaster(Math.max(0,clipEnd(c)-1),clipEnd(c)+2)};
+function nextAtJoin(){
+ const a=selected();if(!a)throw Error('Select the outgoing master clip');
+ const ordered=[...clips].sort((x,y)=>x.masterStart-y.masterStart);
+ const b=ordered[ordered.findIndex(x=>x.id===a.id)+1];
+ if(!b)throw Error('Select a clip with a following clip');
+ return {a,b};
+}
+$('crossfade-join').onclick=()=>{
+ try{const {a}=nextAtJoin();const ms=Number($('crossfade-ms').value);
+   const proposed=autoCrossfade(clips,a.id,ms/1000);snapshot();clips=proposed;updateUI();
+   status('Equal-power overlap created at '+(ms||0)+' ms; later audio rippled. Undo restores the previous splice.');
+ }catch(err){status(err.message,true)}
+};
+async function snapAtJoin(kind){
+ let sourceToRelease=null;
+ try{
+   const {a,b}=nextAtJoin(),target=kind==='out'?a:b;
+   const s=sourceById(target.sourceId);sourceToRelease=s;
+   if(!s?.file)throw Error('Relink the selected source before snapping');
+   if(s.duration*s.sampleRate*8>300*1024*1024)throw Error('Source too large for this in-browser snap. Use manual time input.');
+   const buffer=await bufferFor(s);
+   const snap=findQuietZeroCrossing(buffer,kind==='out'?a.sourceOut:b.sourceIn,12);
+   if(!snap){status('No nearby zero crossing detected; join was not changed.',true);return}
+   const proposed=kind==='out'?snapOutgoingEnd(clips,a.id,snap.timeSec):
+     slipIncomingStart(clips,a.id,snap.timeSec,s.duration);
+   snapshot();clips=proposed;
+   s.buffer=null;
+   updateUI();
+   status('Applied '+kind.toUpperCase()+' snap: '+snap.shiftMs.toFixed(3)+' ms, nearby PCM RMS '+snap.rmsAtBoundary+'. Undo available.');
+ }catch(err){status('Snap unavailable: '+err.message,true)}
+ finally{if(sourceToRelease)sourceToRelease.buffer=null}
+}
+$('snap-out').onclick=()=>snapAtJoin('out');
+$('snap-in').onclick=()=>snapAtJoin('in');
 $('sample-view').onclick=async()=>{
  const c=selected();if(!c)return status('Select a clip first.',true);
  const list=[...clips].sort((a,b)=>a.masterStart-b.masterStart),next=list[list.findIndex(x=>x.id===c.id)+1];

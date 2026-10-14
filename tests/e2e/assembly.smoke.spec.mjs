@@ -61,3 +61,34 @@ test('Master Assembly layout remains reachable on phone',async({page})=>{
  await expect(page.locator('#sources')).toBeVisible();
  await expect(page.locator('#clip-editor')).toBeHidden();
 });
+
+test('Master Assembly: optional clean-boundary snaps and equal-power crossfade export',async({page})=>{
+ test.setTimeout(55000);
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('http://127.0.0.1:4173/assembly.html',{waitUntil:'networkidle'});
+ await page.locator('#source-files').setInputFiles([
+  {name:'snap-out.wav',mimeType:'audio/wav',buffer:wave(80)},
+  {name:'snap-in.wav',mimeType:'audio/wav',buffer:wave(190)}
+ ]);
+ await expect(page.locator('.source-card .add').last()).toBeEnabled({timeout:20000});
+ await page.locator('.source-card .add').first().click();
+ // Preserve source head/tail for nondestructive slip editing.
+ await page.locator('.source-card .range-in').last().fill('0.20');
+ await page.locator('.source-card .range-in').last().dispatchEvent('change');
+ await page.locator('.source-card .range-out').last().fill('1.60');
+ await page.locator('.source-card .range-out').last().dispatchEvent('change');
+ await page.locator('.source-card .add').last().click();
+ await page.locator('.master-clip').first().click();
+ await page.locator('#snap-out').click();
+ await expect(page.locator('#notice')).toContainText('Applied OUT snap',{timeout:15000});
+ await page.locator('#snap-in').click();
+ await expect(page.locator('#notice')).toContainText('Applied IN snap',{timeout:15000});
+ await page.locator('#crossfade-join').click();
+ await expect(page.locator('#notice')).toContainText('Equal-power overlap created');
+ await expect(page.locator('#fade-out')).toHaveValue('50');
+ const down=page.waitForEvent('download');await page.locator('#export-master').click();
+ const wavOut=await down;const bytes=await readFile(await wavOut.path());
+ expect(bytes.toString('ascii',0,4)).toBe('RIFF');
+ expect(bytes.length).toBeGreaterThan(200000);
+ expect(errors).toEqual([]);
+});

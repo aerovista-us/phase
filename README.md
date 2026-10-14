@@ -4,10 +4,10 @@
 
 Live alpha: **https://phase.aerovista.us/**
 
-## Master Assembly (0.14.0 candidate)
-Open assembly.html from the MASTER ASSEMBLY workflow tab. Import local sources, audition, choose IN/OUT, append or insert at playhead (splitting and rippling an occupied clip), rearrange, split, copy, paste, undo, inspect native samples, apply fades, and export PCM WAV. Source audio is never rewritten. MIX & SYNC remains available in index.html. Audio is not embedded in saved project maps. See docs/MASTER_ASSEMBLY_V1.md for acceptance and limitations.
+## Master Assembly (0.14.1 precision candidate)
+Open assembly.html from the MASTER ASSEMBLY workflow tab. Import local sources, audition, choose IN/OUT, append or insert at playhead (splitting and rippling an occupied clip), rearrange, split, copy, paste, undo, inspect native samples, apply fades, and export PCM WAV. Source audio is never rewritten. MIX & SYNC remains available in index.html. Audio is not embedded in saved project maps. See docs/MASTER_ASSEMBLY_V1.md for acceptance and limitations. Optional zero-crossing snap and equal-power crossfade controls are available in the Splice Inspector.
 
-## Current foundation — Phase 0.14.0
+## Current foundation — Phase 0.14.1
 
 Phase is now a functional local-first mashup workstation with recovery, diagnostics, staged startup, lightweight project packaging, lifecycle-safe session persistence, resource preflight, production-readiness telemetry and an original first-run demo.
 

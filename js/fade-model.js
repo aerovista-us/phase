@@ -19,15 +19,22 @@ export function normalizeFades(item={}){
 
 export function envelopeGainAtLocal(local,item={}){
   const t=Number(local)||0,f=normalizeFades(item);let g=1;
-  if(f.fadeInStart!=null){if(t<=f.fadeInStart)g*=0;else if(t<f.fadeInEnd)g*=clamp((t-f.fadeInStart)/(f.fadeInEnd-f.fadeInStart))}
-  if(f.fadeOutStart!=null){if(t>=f.fadeOutEnd)g*=0;else if(t>f.fadeOutStart)g*=clamp(1-(t-f.fadeOutStart)/(f.fadeOutEnd-f.fadeOutStart))}
+  if(f.fadeInStart!=null){if(t<=f.fadeInStart)g*=0;else if(t<f.fadeInEnd){const portion=clamp((t-f.fadeInStart)/(f.fadeInEnd-f.fadeInStart));g*=(item.fadeInCurve||item.fadeCurve)==='equalPower'?Math.sin(portion*Math.PI/2):portion}}
+  if(f.fadeOutStart!=null){if(t>=f.fadeOutEnd)g*=0;else if(t>f.fadeOutStart){const portion=clamp((t-f.fadeOutStart)/(f.fadeOutEnd-f.fadeOutStart));g*=(item.fadeOutCurve||item.fadeCurve)==='equalPower'?Math.cos(portion*Math.PI/2):1-portion}}
   return clamp(g);
 }
 
 export function envelopePoints(item,projectStart,projectEnd){
   const p0=Number(projectStart)||0,p1=Math.max(p0,Number(projectEnd)||p0),offset=Number(item?.offset)||0,f=normalizeFades(item),times=[p0,p1];
   for(const local of[f.fadeInStart,f.fadeInEnd,f.fadeOutStart,f.fadeOutEnd])if(local!=null){const p=offset+local;if(p>p0&&p<p1)times.push(p)}
-  return[...new Set(times.sort((a,b)=>a-b))].map(projectTime=>({projectTime,time:projectTime-p0,gain:envelopeGainAtLocal(projectTime-offset,f)}));
+  if(item?.fadeInCurve==='equalPower'||item?.fadeOutCurve==='equalPower'||item?.fadeCurve==='equalPower'){
+    // Approximate sin/cos curves using bounded automation knots for matching live/offline envelopes.
+    for(const [a,b] of [[f.fadeInStart,f.fadeInEnd],[f.fadeOutStart,f.fadeOutEnd]]){
+      if(a==null||b==null)continue;
+      for(let i=1;i<24;i++){const p=offset+a+(b-a)*i/24;if(p>p0&&p<p1)times.push(p)}
+    }
+  }
+  return[...new Set(times.sort((a,b)=>a-b))].map(projectTime=>({projectTime,time:projectTime-p0,gain:envelopeGainAtLocal(projectTime-offset,item)}));
 }
 
 export function applyGainEnvelope(param,baseGain,item,projectStart,projectEnd,audioStartTime){
