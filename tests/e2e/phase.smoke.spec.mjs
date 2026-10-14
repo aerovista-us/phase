@@ -6,7 +6,7 @@ async function boot(page,{width=1440,height=900}={}){
   await page.setViewportSize({width,height});
   const errors=[];page.on('pageerror',err=>errors.push(String(err?.stack||err)));
   await page.goto(base+'/',{waitUntil:'networkidle'});
-  await expect(page.locator('.brand .tag')).toContainText('0.14.2');
+  await expect(page.locator('.brand .tag')).toContainText('0.14.3');
   await expect(page.locator('#engineState')).toBeVisible();
   await expect(page.locator('#demoProject')).toBeVisible({timeout:5000});
   await expect(page.locator('.readinessbar')).toBeVisible();
@@ -69,7 +69,7 @@ test('Phase lifecycle saves the session and the PWA relaunches offline',async({p
   expect(saved?.version).toBe(12);expect(saved?.tracks?.[0]?.fileName).toBe('phase-demo-a.wav');expect(saved?.tracks?.[1]?.fileName).toBe('phase-demo-b.wav');expect(saved?.savedAt).toBeTruthy();
   await context.setOffline(true);
   await page.reload({waitUntil:'domcontentloaded',timeout:15000});
-  await expect(page.locator('.brand .tag')).toContainText('0.14.2');await expect(page.locator('#demoProject')).toBeVisible({timeout:7000});
+  await expect(page.locator('.brand .tag')).toContainText('0.14.3');await expect(page.locator('#demoProject')).toBeVisible({timeout:7000});
   await page.goto(base+'/recovery.html',{waitUntil:'domcontentloaded',timeout:15000});
   await expect(page.locator('h1')).toHaveText('PHASE RECOVERY');await expect(page.locator('#saved')).toHaveText('YES');await expect(page.locator('#mapVersion')).toHaveText('12');
   await context.setOffline(false);expect(errors,errors.join('\n')).toEqual([]);
@@ -81,7 +81,7 @@ test('standalone recovery route loads without workstation modules',async({page})
   const errors=[];page.on('pageerror',err=>errors.push(String(err?.stack||err)));
   await page.goto(base+'/recovery.html',{waitUntil:'networkidle'});
   await expect(page.locator('h1')).toHaveText('PHASE RECOVERY');
-  await expect(page.locator('#liveVersion')).toHaveText('0.14.2');
+  await expect(page.locator('#liveVersion')).toHaveText('0.14.3');
   await expect(page.locator('#liveValidated')).toHaveText('YES');
   await expect(page.locator('#report')).toBeVisible();
   expect(errors,errors.join('\n')).toEqual([]);
