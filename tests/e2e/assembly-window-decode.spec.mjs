@@ -23,10 +23,12 @@ test('Master Assembly reads only the original late WAV clip for playback and exp
   name:'long-original.wav',mimeType:'audio/wav',buffer:wav()
  }]);
  await expect(page.locator('.source-status')).toContainText('streamed-pcm-wav',{timeout:30000});
- await page.locator('.range-in').fill('31.25');
- await page.locator('.range-in').dispatchEvent('change');
  await page.locator('.range-out').fill('32.75');
  await page.locator('.range-out').dispatchEvent('change');
+ await page.locator('.range-in').fill('31.25');
+ await page.locator('.range-in').dispatchEvent('change');
+ await expect(page.locator('.range-in')).toHaveValue('31.250000');
+ await expect(page.locator('.range-out')).toHaveValue('32.750000');
  await page.locator('.add').click();
  await expect(page.locator('.master-clip')).toHaveCount(1);
  await page.evaluate(()=>{
