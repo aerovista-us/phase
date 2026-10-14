@@ -72,7 +72,7 @@ GitHub Pages is triggered only on merge to `main`. Deploy artifact now includes 
 
 **Release acceptance:** Pure Node tests of exact sample alignment, bounded reads, re-based fades, seek windows, unavailable-source and memory limit behavior; Chromium import/play/PCM WAV export of a late region without original full-file reading; existing Mix & Sync regressions. Additional listening quality review is separate.
 
-## 0.14.4 — Bounded MP3 master windows (candidate, not deployed)
+## 0.14.4 — Bounded MP3 master windows
 
 ### Source authority and gapless alignment
 
@@ -83,8 +83,8 @@ GitHub Pages is triggered only on merge to `main`. Deploy artifact now includes 
 - Master Assembly reuses the existing clip fade and `renderMix` contracts. If the browser lacks a supported incremental decoder, it may fall back to authoritative `decodeAudioData()` with a strict memory ceiling; it must never present peak-index data as render-quality samples.
 - WAV window decoding remains as in 0.14.3. Other formats use native compatibility decode. Mix & Sync is unchanged.
 
-### Evidence and release gates
+### Validation evidence and remaining gates
 
 - Node unit tests: sample-bound decoder, MP3 frame read bounds, Xing/Lavc encoder-delay mapping and safe failure behavior.
 - Chromium: source clip outputs and indexed waveform extrema/duration match `decodeAudioData` *exactly* on test CBR, VBR and seekable gapless VBR files after handling decoder continuity. Additional integration test verifies a late, short MP3 segment can be played and exported without whole-file decoded source allocation, and compares exported waveform samples with the authoritative native decoder.
-- Still required before publishing: exact PR-head unit, browser and MP3-export smoke tests. Real recording QA is separate and cannot be claimed from generated fixtures. Unknown MP3 encoder metadata and malformed streams must continue to use a safe native fallback or fail closed.
+- Exact PR-head CI must remain green before merge; generated fixture tests do not constitute real-recording listening QA or hardware performance profiling. Unknown MP3 encoder metadata and malformed streams must continue to use a safe native fallback or fail closed.
