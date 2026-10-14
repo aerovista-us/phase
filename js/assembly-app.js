@@ -2,6 +2,7 @@ import{newClip,clipDuration,clipEnd,projectDuration,insertClip,splitClip,removeC
 import{buildWavePyramid,drawWave,drawRawSamples}from'./assembly-waveform.js';
 import{indexAudioPeaks,StreamingUnavailable}from'./assembly-peak-indexer.js';
 import{prepareAssemblyItems}from'./assembly-window-decode.js';
+import{dragSeconds,draggedBeyondThreshold}from'./drag-motion.js';
 import{renderMix,downloadWav}from'./export.js';
 import{applyGainEnvelope}from'./fade-model.js';
 import{findQuietZeroCrossing,autoCrossfade,snapOutgoingEnd,slipIncomingStart}from'./splice-precision.js';
@@ -111,11 +112,50 @@ function drawMaster(){
    const wave=document.createElement('canvas'),label=document.createElement('span');label.textContent=(s?.name||'Missing audio')+' · '+fmt(c.sourceIn);
    el.append(wave,label);lane.append(el);
    if(s?.pyramid)drawWave(wave,s.pyramid,c.sourceIn,c.sourceOut,{stroke:'#8addf6'});
-   el.onclick=()=>{selectedId=c.id;updateUI()};
+   let dragging=false,suppressClick=false;
+   el.onclick=()=>{if(suppressClick){suppressClick=false;return}selectedId=c.id;updateUI()};
    el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectedId=c.id;updateUI()}};
-   el.onpointerdown=e=>{if(e.button!==0)return;const origin=e.clientX,base=c.masterStart;
-      el.setPointerCapture(e.pointerId);
-      el.onpointerup=up=>{el.onpointerup=null;const dx=up.clientX-origin;if(Math.abs(dx)>5){snapshot();clips=moveClip(clips,c.id,Math.max(0,base+dx/zoom));selectedId=c.id;updateUI()}};
+   el.onpointerdown=e=>{
+     if(e.button!==0||e.target.closest('button,input'))return;
+     const pointerId=e.pointerId,startX=e.clientX,base=c.masterStart,oldLeft=el.style.left;
+     let moved=false,pending=base,active=true;
+     const cleanup=()=>{
+       if(!active)return;active=false;dragging=false;
+       el.classList.remove('dragging');
+       el.removeEventListener('pointermove',preview);
+       el.removeEventListener('pointerup',finish);
+       el.removeEventListener('pointercancel',cancel);
+       window.removeEventListener('keydown',escape);
+       try{if(el.hasPointerCapture(pointerId))el.releasePointerCapture(pointerId)}catch{}
+     };
+     const cancel=()=>{el.style.left=oldLeft;cleanup();status('Clip move canceled.');};
+     const escape=key=>{if(key.key==='Escape'){key.preventDefault();cancel()}};
+     const preview=ev=>{
+       if(ev.pointerId!==pointerId)return;
+       const dx=ev.clientX-startX;
+       if(!moved&&!draggedBeyondThreshold(dx))return;
+       moved=true;dragging=true;pending=dragSeconds(base,dx,zoom,{min:0});
+       el.style.left=pending*zoom+'px';
+       el.classList.add('dragging');
+       status('Moving clip · '+fmt(pending)+' · release to set, Esc to cancel');
+     };
+     const finish=ev=>{
+       if(ev.pointerId!==pointerId)return;
+       if(moved){
+         const dx=ev.clientX-startX;
+         pending=dragSeconds(base,dx,zoom,{min:0});
+         const changed=Math.abs(pending-base)>1/48000;
+         suppressClick=true;
+         if(changed){snapshot();clips=moveClip(clips,c.id,pending)}
+         selectedId=c.id;
+         cleanup();updateUI();status(changed?'Clip moved to '+fmt(pending)+'. Undo available.':'Clip position unchanged.');
+       }else{cleanup()}
+     };
+     el.setPointerCapture(pointerId);
+     el.addEventListener('pointermove',preview);
+     el.addEventListener('pointerup',finish);
+     el.addEventListener('pointercancel',cancel);
+     window.addEventListener('keydown',escape);
    };
  }
 }
