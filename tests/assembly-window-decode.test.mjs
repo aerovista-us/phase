@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {decodeWavWindow,prepareAssemblyItems,activeClipWindow,sampleWindow,wavInfo} from '../js/assembly-window-decode.js';
+import {decodeWavWindow,decodeSourceWindow,prepareAssemblyItems,activeClipWindow,sampleWindow,wavInfo} from '../js/assembly-window-decode.js';
+import {findQuietZeroCrossing} from '../js/splice-precision.js';
 import {envelopeGainAtLocal} from '../js/fade-model.js';
 
 const rate=48000,channels=2;
@@ -100,4 +101,35 @@ test('invalid windows reject and empty timeline produces no items',async()=>{
  assert.equal(activeClipWindow({masterStart:8,sourceIn:0,sourceOut:2},1,2),null);
  const p=await prepareAssemblyItems([],()=>null,{context:context(),loadFullBuffer:()=>null});
  assert.equal(p.items.length,0);
+});
+
+test('splice detail retains only the requested native samples and maps snap back exactly',async()=>{
+ const file=fileFixture(),ctx=context(),s={file,name:'original.wav',duration:22,sampleRate:rate,indexMode:'streamed-pcm-wav'};
+ const full=await decodeWavWindow(file,{startSec:0,endSec:22,context:ctx});
+ file.arrayBuffer=()=>{throw Error('Full source decode forbidden')};
+ const at=18.231,start=Math.max(0,at-.012-2/rate),end=at+.012+2/rate;
+ const part=await decodeSourceWindow(s,{startSec:start,endSec:end,context:ctx,
+  loadFullBuffer:()=>{throw Error('No full fallback')}});
+ assert.ok(part.buffer.length<1200);
+ assert.equal(part.startSec,Math.round(start*rate)/rate);
+ const native=findQuietZeroCrossing(full.buffer,at),bounded=findQuietZeroCrossing(part.buffer,at-part.startSec);
+ assert.ok(native&&bounded);
+ assert.equal(Math.round((part.startSec+bounded.timeSec)*rate),native.sampleIndex);
+ assert.equal(bounded.shiftMs,native.shiftMs);
+ assert.equal(bounded.rmsAtBoundary,native.rmsAtBoundary);
+});
+test('unsupported detail sources use labeled native compatibility and preflight rejects huge sources',async()=>{
+ const ctx=context(),file=new File([new Uint8Array(100)],'other.ogg');
+ const s={file,duration:1,sampleRate:rate,channels:2,indexMode:'full-decode-fallback'};
+ let calls=0;
+ const part=await decodeSourceWindow(s,{startSec:.25,endSec:.3,context:ctx,loadFullBuffer:async()=>{calls++;return ctx.createBuffer(2,rate,rate)}});
+ assert.equal(part.mode,'compatibility-full-source');assert.equal(part.startSec,0);assert.equal(calls,1);
+ await assert.rejects(decodeSourceWindow({...s,duration:1000},{startSec:.25,endSec:.3,context:ctx,maxFullBytes:1024,loadFullBuffer:()=>{calls++}}),/memory budget/);
+ assert.equal(calls,1);
+});
+test('source detail validates bounds before decoder or fallback allocations',async()=>{
+ const s={file:new File(['x'],'x.ogg'),duration:1,sampleRate:rate};let allocations=0;
+ for(const [a,b]of[[-1,.1],[.5,.4],[0,2],[NaN,.1],[0,Infinity]])
+  await assert.rejects(decodeSourceWindow(s,{startSec:a,endSec:b,context:context(),loadFullBuffer:()=>allocations++}),/Invalid/);
+ assert.equal(allocations,0);
 });

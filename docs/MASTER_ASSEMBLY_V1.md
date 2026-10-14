@@ -1,5 +1,16 @@
 # Phase Master Assembly — v0.14.0 candidate
 
+**Current implementation:** Phase 0.14.6 source-to-master workflow and bounded splice detail. See [current closeout](HANDOFF_2026-10-14_PHASE_0146.md) for exact release evidence and remaining gates. Earlier milestone sections below preserve historical scope; their "candidate" and whole-source decode statements do not describe all current paths.
+
+## 0.14.6 — Source placement and bounded native splice detail
+
+- Source selections can be dragged into the master for split/ripple insertion, or armed then placed with a tap/click. Existing Insert at Playhead is the keyboard/numeric route. Cancel/Escape has no edit, and one Undo restores an insertion.
+- Splice sample view and zero-crossing snap use original PCM WAV/MP3 windows, with native source coordinates restored after local decoding. Unknown codecs use an explicitly labeled full-decode fallback, guarded before allocation. No peak proxy enters snap or export.
+- In-flight sample/snap results cannot modify a changed edit map or stale selection. Loss of pointer capture or focus cancels Master Assembly and Mix & Sync movement.
+- Direct Assembly launches now register/update the same offline worker, show the exact release label and link to the existing non-destructive recovery surface. No automatic site-data reset or source-file deletion.
+- Complete original recordings were imported and early/middle/late section WAVs compared with native reference samples. Objective export results are separate from subjective listening/hardware approval.
+- Full-master output remains a bounded whole-output allocation, not an incremental WAV writer.
+
 ## Scope and user workflow
 
 Keep the existing Mix & Sync workstation unchanged at `index.html`. New `assembly.html` opens Master Assembly, a local-first nondestructive editor focused on assembling a single output from segments of many sources.

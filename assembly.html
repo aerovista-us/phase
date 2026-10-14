@@ -9,10 +9,10 @@
 <header class="toolbar">
  <a class="brand" href="./">ECHOVERSE <strong>PHASE</strong></a>
  <nav aria-label="Phase workflows"><a href="./">MIX &amp; SYNC</a><a class="active" aria-current="page" href="./assembly.html">MASTER ASSEMBLY</a></nav>
- <div class="toolbar-actions"><button id="load-project">OPEN MAP</button><button id="save-project">SAVE MAP</button></div>
+ <div class="toolbar-actions"><button id="load-project">OPEN MAP</button><button id="save-project">SAVE MAP</button><a href="./recovery.html" title="Inspect the current build; save your map before any cache recovery">APP RECOVERY</a></div>
 </header>
 <main>
-<section class="hero"><div><div class="eyebrow">MASTER ASSEMBLY / PREVIEW ALPHA</div><h1>Build a track from the parts worth keeping.</h1><p>Original files stay untouched. Assemble clips at the top; audition compact source decks below.</p></div>
+<section class="hero"><div><div class="eyebrow">MASTER ASSEMBLY / ALPHA 0.14.6</div><h1>Build a track from the parts worth keeping.</h1><p>Original files stay untouched. Assemble clips at the top; audition compact source decks below.</p></div>
  <div class="action"><label class="file-button">+ ADD SOURCE(S)<input id="source-files" type="file" accept="audio/*,.mp3,.wav,.m4a,.flac,.ogg" multiple hidden></label></div>
 </section>
 <div id="notice" role="status" aria-live="polite">Drop an audio file or choose Add Sources to begin.</div>
@@ -22,7 +22,7 @@
  <div class="controls">
  <label>ZOOM <input id="zoom" type="range" min="3" max="240" value="8"><span id="zoom-value">8 px/s</span></label><button id="fit-master" title="Fit the complete arrangement into the timeline">FIT MASTER</button>
  <label>PLAYHEAD (s) <input id="playhead" type="number" min="0" step="any" value="0"></label>
- <button id="paste-clip" title="Insert copied clip at playhead">PASTE / INSERT</button><button id="split-clip">SPLIT</button><button id="remove-clip">DELETE</button><button id="undo">UNDO</button>
+ <button id="paste-clip" title="Insert copied clip at playhead">PASTE / INSERT</button><button id="split-clip">SPLIT</button><button id="remove-clip">DELETE</button><button id="undo">UNDO</button><button id="cancel-placement" hidden>CANCEL PLACEMENT</button>
  </div>
  <div class="section-export controls" aria-label="Selection export controls">
   <button id="mark-in" title="Mark section start at playhead">SET IN</button>
@@ -33,7 +33,7 @@
   <span class="hint">Set IN and OUT with the playhead, or enter exact seconds. Short sections use less render memory.</span>
  </div>
  <div id="master-scroll" class="scroll"><div id="master-lane" aria-label="Master clips, click to select and drag to move"></div><div id="master-ruler"></div></div>
- <p class="hint">Select a clip to edit. Click the ruler to place the playhead. Drag a master clip to preview its new position; release to commit, Escape to cancel. use Split for sample-indexed divisions. Clips can overlap to create transitions.</p>
+ <p class="hint">Select a clip to edit. Click the ruler to place the playhead. Drag a master clip to preview its new position; release to commit, Escape to cancel. Drag a source selection here, or use its PLACE action then tap the master to insert and ripple. Use Split for sample-indexed divisions. Clips can overlap to create transitions.</p>
  <div id="clip-editor" class="clip-editor" hidden>
   <strong id="clip-name">Selected clip</strong><label>START (s)<input id="clip-start" type="number" step="any" min="0"></label>
   <label>FADE IN (ms)<input id="fade-in" type="number" min="0" max="5000" step="1"></label>
@@ -60,5 +60,8 @@
 <section class="footer-note"><p><strong>Quality boundary:</strong> Waveforms use a multiresolution min/max peak index; preview playback streams the file. WAV/MP3 source decoding uses bounded original-audio windows where supported. Full-master export still renders one output buffer; export a smaller section to reduce peak render memory. This is not a streaming final WAV encoder or mastering limiter. Clean-boundary snapping is optional; equal-power crossfades can increase combined level on correlated audio.</p></section>
 </main>
 <input id="project-file" type="file" accept=".json,application/json" hidden>
+<script>
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js', {updateViaCache:'none'}).then(r=>r.update()).catch(console.warn);
+</script>
 <script type="module" src="./js/assembly-app.js"></script>
 </body></html>

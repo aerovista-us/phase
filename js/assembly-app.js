@@ -1,7 +1,7 @@
 import{newClip,clipDuration,clipEnd,projectDuration,insertClip,splitClip,removeClip,moveClip,updateFade,saveAssembly,restoreAssembly,quantize}from'./assembly-model.js';
 import{buildWavePyramid,drawWave,drawRawSamples}from'./assembly-waveform.js';
 import{indexAudioPeaks,StreamingUnavailable}from'./assembly-peak-indexer.js';
-import{prepareAssemblyItems}from'./assembly-window-decode.js';
+import{prepareAssemblyItems,decodeSourceWindow}from'./assembly-window-decode.js';
 import{dragSeconds,draggedBeyondThreshold}from'./drag-motion.js';
 import{sectionRange,sectionFilename}from'./assembly-section.js';
 import{renderMix,renderMixRegion,downloadWav}from'./export.js';
@@ -11,12 +11,28 @@ import{findQuietZeroCrossing,autoCrossfade,snapOutgoingEnd,slipIncomingStart}fro
 const $=id=>document.getElementById(id);
 const fmt=s=>{const n=Math.max(0,s||0);return Math.floor(n/60)+':'+(n%60).toFixed(2).padStart(5,'0')};
 let sources=[],clips=[],selectedId=null,clipboard=null,undoStack=[],zoom=8,autoFit=true,ctx=null,live=[],sourcePlayer=new Audio(),currentSource=null,stopAt=Infinity,busy=false,previewUrl=null,playToken=0;
+let placement=null;
+const sourceDragType='application/x-phase-source';
 const sourceById=id=>sources.find(s=>s.id===id);
 const selected=()=>clips.find(c=>c.id===selectedId);
 const status=(message,error=false)=>{$('notice').textContent=message;$('notice').classList.toggle('error',error)};
 const genId=()=>crypto.randomUUID?.()||Math.random().toString(36).slice(2);
 const snapshot=()=>{undoStack.push(clips.map(c=>({...c})));if(undoStack.length>60)undoStack.shift()};
 const aud=()=>ctx||(ctx=new(window.AudioContext||window.webkitAudioContext)());
+function cancelPlacement(){placement=null;$('master-lane').classList.remove('placing');
+ $('placement-guide')?.remove();$('cancel-placement').hidden=true;}
+function placementTime(clientX){const lane=$('master-lane'),rect=lane.getBoundingClientRect();
+ return quantize(Math.max(0,Math.min(rect.width/zoom,(clientX-rect.left)/zoom)));}
+function showPlacement(at){
+ if(!placement)return;
+ let guide=$('placement-guide');if(!guide){guide=document.createElement('div');guide.id='placement-guide';guide.setAttribute('aria-hidden','true');$('master-lane').append(guide)}
+ guide.style.left=at*zoom+'px';guide.textContent='INSERT '+fmt(at);$('master-lane').classList.add('placing');
+}
+function placeSource(s,at){
+ if(!s?.ready)return;
+ const c=newClip(s,s.inSec,s.outSec,at);snapshot();clips=insertClip(clips,c,at,true);selectedId=c.id;
+ cancelPlacement();updateUI();status('Inserted '+s.name+' at '+fmt(at)+'; later audio rippled. Undo available.');
+}
 function stop(){
  playToken++;
  sourcePlayer.pause();
@@ -48,7 +64,7 @@ async function indexSource(s,file){
   status('Streaming decoder unavailable · full-decode compatibility mode for '+file.name);
   const buffer=await aud().decodeAudioData(await file.arrayBuffer());
   const pyramid=buildWavePyramid(buffer);
-  result={pyramid,duration:buffer.duration,sampleRate:buffer.sampleRate,mode:'full-decode-fallback',
+  result={pyramid,duration:buffer.duration,sampleRate:buffer.sampleRate,channels:buffer.numberOfChannels,mode:'full-decode-fallback',
    peakBytes:pyramid.levels[0].min.byteLength+pyramid.levels[0].max.byteLength};
  }
  // Original File is preserved; only min/max waveform summaries remain after indexing.
@@ -71,7 +87,7 @@ function renderSourceCards(){
  if(!sources.length){root.innerHTML='<p class="empty">No sources yet. Add local audio files to begin.</p>';return;}
  for(const s of sources){
  const card=document.createElement('div');card.className='source-card'+(s.id===currentSource?' active':'');card.dataset.source=s.id;
- card.innerHTML='<div><div class="source-name"></div><div class="source-status"></div></div><div class="source-wave" title="Click to set IN; Shift-click to set OUT"><canvas></canvas><div class="source-range"></div></div><div class="source-actions"><label>IN <input class="range-in" type="number" min="0" step="any"></label><label>OUT <input class="range-out" type="number" min="0" step="any"></label><button class="audition">▶ SOLO</button><button class="add">↑ APPEND</button><button class="insert">INSERT @ PLAYHEAD</button></div>';
+ card.innerHTML='<div><div class="source-name"></div><div class="source-status"></div></div><div class="source-wave" title="Click to set IN; Shift-click to set OUT"><canvas></canvas><div class="source-range"></div></div><div class="source-actions"><label>IN <input class="range-in" type="number" min="0" step="any"></label><label>OUT <input class="range-out" type="number" min="0" step="any"></label><button class="audition">▶ SOLO</button><button class="add">↑ APPEND</button><button class="insert">INSERT @ PLAYHEAD</button><button class="place-source" draggable="true" title="Drag the selected source region to the master, or click then tap a position">DRAG / PLACE IN MASTER</button></div>';
  card.querySelector('.source-name').textContent=s.name;
  card.querySelector('.source-status').textContent=s.ready?fmt(s.duration)+' · '+s.sampleRate+' Hz · '+(s.indexMode==='full-decode-fallback'?'compatibility decode':s.indexMode||'indexed'):'RELINK AUDIO REQUIRED';
  root.append(card);
@@ -92,6 +108,11 @@ function renderSourceCards(){
    previewUrl=URL.createObjectURL(s.file);sourcePlayer.src=previewUrl;sourcePlayer.currentTime=s.inSec;stopAt=s.outSec;currentSource=s.id;updateUI();try{await sourcePlayer.play();status('Solo audition · '+s.name)}catch(err){status('Preview unavailable: '+err.message,true)}};
  card.querySelector('.add').onclick=()=>{snapshot();const c=newClip(s,s.inSec,s.outSec,projectDuration(clips));clips=insertClip(clips,c,c.masterStart);selectedId=c.id;updateUI();status('Added '+s.name+' to master. Drag, trim, or split the clip.')};
  card.querySelector('.insert').onclick=()=>{snapshot();const at=Number($('playhead').value)||0;const c=newClip(s,s.inSec,s.outSec,at);clips=insertClip(clips,c,at,true);selectedId=c.id;updateUI();status('Inserted at playhead, splitting occupied clips and shifting later audio.')};
+ const handle=card.querySelector('.place-source');
+ handle.onclick=()=>{cancelPlacement();placement=s.id;$('cancel-placement').hidden=false;showPlacement(Number($('playhead').value)||0);
+   $('master-scroll').scrollIntoView({block:'center',behavior:'instant'});status('Tap or click the master at the insertion point. Escape or Cancel leaves the edit map unchanged.');};
+ handle.ondragstart=e=>{cancelPlacement();placement=s.id;e.dataTransfer.setData(sourceDragType,s.id);e.dataTransfer.effectAllowed='copy';$('cancel-placement').hidden=false;status('Drop on the master to insert this source selection; Escape cancels.');};
+ handle.ondragend=()=>cancelPlacement();
  }
 }
 function drawMaster(){
@@ -114,10 +135,11 @@ function drawMaster(){
    el.append(wave,label);lane.append(el);
    if(s?.pyramid)drawWave(wave,s.pyramid,c.sourceIn,c.sourceOut,{stroke:'#8addf6'});
    let dragging=false,suppressClick=false;
-   el.onclick=()=>{if(suppressClick){suppressClick=false;return}selectedId=c.id;updateUI()};
+   el.onclick=()=>{if(placement)return;if(suppressClick){suppressClick=false;return}selectedId=c.id;updateUI()};
    el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectedId=c.id;updateUI()}};
    el.onpointerdown=e=>{
-     if(e.button!==0||e.target.closest('button,input'))return;
+     if(placement||e.button!==0||e.target.closest('button,input'))return;
+     suppressClick=false;
      const pointerId=e.pointerId,startX=e.clientX,base=c.masterStart,oldLeft=el.style.left;
      let moved=false,pending=base,active=true;
      const cleanup=()=>{
@@ -126,10 +148,12 @@ function drawMaster(){
        el.removeEventListener('pointermove',preview);
        el.removeEventListener('pointerup',finish);
        el.removeEventListener('pointercancel',cancel);
+       el.removeEventListener('lostpointercapture',cancel);
        window.removeEventListener('keydown',escape);
+       window.removeEventListener('blur',cancel);
        try{if(el.hasPointerCapture(pointerId))el.releasePointerCapture(pointerId)}catch{}
      };
-     const cancel=()=>{el.style.left=oldLeft;cleanup();status('Clip move canceled.');};
+     const cancel=()=>{suppressClick=moved;el.style.left=oldLeft;cleanup();status('Clip move canceled.');};
      const escape=key=>{if(key.key==='Escape'){key.preventDefault();cancel()}};
      const preview=ev=>{
        if(ev.pointerId!==pointerId)return;
@@ -156,7 +180,9 @@ function drawMaster(){
      el.addEventListener('pointermove',preview);
      el.addEventListener('pointerup',finish);
      el.addEventListener('pointercancel',cancel);
+     el.addEventListener('lostpointercapture',cancel);
      window.addEventListener('keydown',escape);
+     window.addEventListener('blur',cancel);
    };
  }
 }
@@ -177,7 +203,7 @@ function drawInspector(){
  $('join-message').textContent=next?('Join '+fmt(clipEnd(c))+' → '+fmt(next.masterStart)+' · gap/overlap '+(next.masterStart-clipEnd(c)).toFixed(3)+' s; min/max peaks near boundaries.'): 'No next clip. Add one to compare incoming audio.';
 }
 function fitZoom(){const width=Math.max(320,$('master-scroll').clientWidth||950);zoom=Math.round(Math.max(3,Math.min(240,(width-58)/Math.max(4,projectDuration(clips)+2))));$('zoom').value=zoom;$('zoom-value').textContent=zoom+' px/s'}
-function updateUI(){if(autoFit&&clips.length)fitZoom();renderSourceCards();drawMaster();editPanel();drawInspector()}
+function updateUI(){cancelPlacement();if(autoFit&&clips.length)fitZoom();renderSourceCards();drawMaster();editPanel();drawInspector()}
 async function bufferFor(s){if(!s?.file)throw Error('Relink missing audio source: '+(s?.name||'unknown'));
   if(!s.buffer)s.buffer=await aud().decodeAudioData(await s.file.arrayBuffer());
   return s.buffer;
@@ -285,41 +311,55 @@ $('crossfade-join').onclick=()=>{
  }catch(err){status(err.message,true)}
 };
 async function snapAtJoin(kind){
+ if(busy)return;
  let sourceToRelease=null;
  try{
+   busy=true;
    const {a,b}=nextAtJoin(),target=kind==='out'?a:b;
+   const before=JSON.stringify(clips),selection=selectedId;
    const s=sourceById(target.sourceId);sourceToRelease=s;
    if(!s?.file)throw Error('Relink the selected source before snapping');
-   if(s.duration*s.sampleRate*8>300*1024*1024)throw Error('Source too large for this in-browser snap. Use manual time input.');
-   const buffer=await bufferFor(s);
-   const snap=findQuietZeroCrossing(buffer,kind==='out'?a.sourceOut:b.sourceIn,12);
+   const targetTime=kind==='out'?a.sourceOut:b.sourceIn;
+   // Extra native samples retain the exact +/-12 ms search at file boundaries.
+   const detail=await decodeSourceWindow(s,{startSec:Math.max(0,targetTime-.012-2/s.sampleRate),
+     endSec:Math.min(s.duration,targetTime+.012+2/s.sampleRate),context:aud(),loadFullBuffer:bufferFor});
+   const snap=findQuietZeroCrossing(detail.buffer,targetTime-detail.startSec,12);
+   if(before!==JSON.stringify(clips)||selection!==selectedId||sourceById(target.sourceId)!==s)throw Error('Edit map changed while loading; retry at the current join.');
    if(!snap){status('No nearby zero crossing detected; join was not changed.',true);return}
-   const proposed=kind==='out'?snapOutgoingEnd(clips,a.id,snap.timeSec):
-     slipIncomingStart(clips,a.id,snap.timeSec,s.duration);
+   const sourceTime=quantize(detail.startSec+snap.timeSec,s.sampleRate);
+   const proposed=kind==='out'?snapOutgoingEnd(clips,a.id,sourceTime):
+     slipIncomingStart(clips,a.id,sourceTime,s.duration);
    snapshot();clips=proposed;
    s.buffer=null;
    updateUI();
    status('Applied '+kind.toUpperCase()+' snap: '+snap.shiftMs.toFixed(3)+' ms, nearby PCM RMS '+snap.rmsAtBoundary+'. Undo available.');
  }catch(err){status('Snap unavailable: '+err.message,true)}
- finally{if(sourceToRelease)sourceToRelease.buffer=null}
+ finally{busy=false;if(sourceToRelease)sourceToRelease.buffer=null}
 }
 $('snap-out').onclick=()=>snapAtJoin('out');
 $('snap-in').onclick=()=>snapAtJoin('in');
 $('sample-view').onclick=async()=>{
+ if(busy)return;
  const c=selected();if(!c)return status('Select a clip first.',true);
  const list=[...clips].sort((a,b)=>a.masterStart-b.masterStart),next=list[list.findIndex(x=>x.id===c.id)+1];
+ const before=JSON.stringify(clips),selection=selectedId,span=Number($('sample-span').value);
  try{
-   const refs=[sourceById(c.sourceId),next&&sourceById(next.sourceId)].filter(Boolean);
-   for(const s of refs){
-     if(s.duration*s.sampleRate*8>240*1024*1024)throw Error('Source exceeds sample-inspector memory limit.');
-     await bufferFor(s);
+   busy=true;status('Loading original sample-detail windows…');
+   const refs=[{clip:c,canvas:$('join-left'),start:Math.max(c.sourceIn,c.sourceOut-span),end:c.sourceOut,color:'#75bde9'},
+    ...(next?[{clip:next,canvas:$('join-right'),start:next.sourceIn,end:Math.min(next.sourceOut,next.sourceIn+span),color:'#c79bf0'}]:[])];
+   const modes=new Set();
+   for(const ref of refs){
+     const s=sourceById(ref.clip.sourceId);
+     const detail=await decodeSourceWindow(s,{startSec:ref.start,endSec:ref.end,context:aud(),loadFullBuffer:bufferFor});
+     if(before!==JSON.stringify(clips)||selection!==selectedId||span!==Number($('sample-span').value)||sourceById(ref.clip.sourceId)!==s)
+      throw Error('Selection changed while loading; request detail again.');
+     drawRawSamples(ref.canvas,detail.buffer,ref.start-detail.startSec,ref.end-detail.startSec,ref.color);
+     modes.add(detail.mode);s.buffer=null;
    }
-   const span=Number($('sample-span').value);
-   drawRawSamples($('join-left'),sourceById(c.sourceId).buffer,Math.max(c.sourceIn,c.sourceOut-span),c.sourceOut,'#75bde9');
-   if(next)drawRawSamples($('join-right'),sourceById(next.sourceId).buffer,next.sourceIn,Math.min(next.sourceOut,next.sourceIn+span),'#c79bf0');
    $('join-message').textContent='Native samples loaded, '+Math.round(span*1000)+' ms window. Clip timing is stored against original samples. Use IN/OUT and START values for precision edits.';
-   status('Sample-detail inspector uses original decoded audio. Master sources stay immutable.');
+   status('Sample detail · '+(modes.has('compatibility-full-source')?'native full-decode compatibility':'bounded original PCM windows')+' · source files unchanged.');
  }catch(err){status('Sample view: '+err.message,true)}
+ finally{busy=false;for(const source of sources)source.buffer=null}
 };
 $('save-project').onclick=()=>{const obj=saveAssembly(sources,clips);const url=URL.createObjectURL(new Blob([JSON.stringify(obj,null,2)],{type:'application/json'}));
  const a=document.createElement('a');a.href=url;a.download='phase-assembly.phase.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);status('Project map saved. Store original audio files beside the map.')};
@@ -330,7 +370,13 @@ $('project-file').onchange=async e=>{try{const p=restoreAssembly(JSON.parse(awai
  catch(err){status('Map import failed: '+err.message,true)}};
 document.body.addEventListener('dragover',e=>e.preventDefault());
 document.body.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer?.files?.length)addFiles([...e.dataTransfer.files])});
+$('cancel-placement').onclick=()=>{cancelPlacement();status('Source placement canceled. No clips changed.');};
+$('master-lane').addEventListener('dragover',e=>{if(!placement||!e.dataTransfer?.types.includes(sourceDragType))return;e.preventDefault();e.dataTransfer.dropEffect='copy';showPlacement(placementTime(e.clientX));});
+$('master-lane').addEventListener('drop',e=>{if(!placement||e.dataTransfer?.getData(sourceDragType)!==placement)return;e.preventDefault();e.stopPropagation();placeSource(sourceById(placement),placementTime(e.clientX));});
+$('master-lane').addEventListener('pointermove',e=>{if(placement)showPlacement(placementTime(e.clientX));});
+$('master-lane').addEventListener('click',e=>{if(placement){e.preventDefault();e.stopPropagation();placeSource(sourceById(placement),placementTime(e.clientX));}},true);
 document.addEventListener('keydown',e=>{if(/INPUT|TEXTAREA/.test(e.target?.tagName||''))return;
+ if(e.key==='Escape'&&placement){cancelPlacement();status('Source placement canceled. No clips changed.');return}
  if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();$('undo').click()}
  if(e.key===' '){e.preventDefault();$('play-master').click()}
 });
