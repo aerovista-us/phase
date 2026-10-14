@@ -53,7 +53,7 @@ for(const [label,opts]of[['CBR',['-b:a','192k']],['VBR',['-q:a','3']],['VBR-gapl
    const waveform={durationGap:Math.abs(indexed.duration-native.duration),
     sampleCountGap:indexed.sampleCount-native.length,
     peakError,mode:indexed.gapless?.mode||'none'};
-   const selected=[{from:2.31,to:2.80},{from:7.13,to:7.62}];
+   const selected=[{from:.03,to:.35},{from:2.31,to:2.80},{from:7.13,to:7.62},{from:11.40,to:11.88}];
    const evidence=[];
    for(const{from,to}of selected){
     let maxRead=0;
