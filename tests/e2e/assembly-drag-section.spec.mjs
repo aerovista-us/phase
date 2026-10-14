@@ -79,3 +79,50 @@ test('Mix & Sync drag previews cheaply, Escape cancels, Shift enables free move,
  await expect(page.locator('#engineState')).toContainText('MOVED TO');
  expect(errors).toEqual([]);
 });
+
+test('Master Assembly narrow-screen clip dragging remains visible, undoable and keyboard accessible',async({page})=>{
+ test.setTimeout(35000);
+ await page.setViewportSize({width:390,height:844});
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('http://127.0.0.1:4173/assembly.html',{waitUntil:'networkidle'});
+ await expect(page.locator('#export-section')).toBeVisible();
+ await page.locator('#source-files').setInputFiles([{name:'phone-sample.wav',mimeType:'audio/wav',buffer:wav(3)}]);
+ await expect(page.locator('.source-card .add')).toBeEnabled({timeout:20000});
+ await page.locator('.source-card .add').click();
+ const clip=page.locator('.master-clip').first();
+ let bounds=await clip.boundingBox();
+ await page.mouse.move(bounds.x+30,bounds.y+48);
+ await page.mouse.down();
+ await page.mouse.move(bounds.x+65,bounds.y+48,{steps:6});
+ await expect(clip).toHaveClass(/dragging/);
+ await page.mouse.up();
+ await expect(page.locator('#notice')).toContainText('Clip moved');
+ expect(Number(await page.locator('#clip-start').inputValue())).toBeGreaterThan(0);
+ await page.locator('#undo').click();
+ await expect(page.locator('#clip-start')).toHaveValue('0.000000');
+ await clip.focus();await page.keyboard.press('Enter');
+ await expect(page.locator('#clip-editor')).toBeVisible();
+ expect(errors).toEqual([]);
+});
+test('Mix & Sync drag preview shifts visible waveform but never changes offset before release',async({page})=>{
+ test.setTimeout(50000);
+ await page.goto('http://127.0.0.1:4173/',{waitUntil:'networkidle'});
+ await page.locator('#demoProject').click();
+ await expect(page.locator('#engineState')).toContainText('DEMO READY',{timeout:15000});
+ await page.locator('.mode[data-mode="move"]').click();
+ const lane=page.locator('#lane-0'),rect=await lane.boundingBox();
+ const x=rect.x+rect.width*.4,y=rect.y+rect.height*.68;
+ const original=await page.locator('#offset-0').inputValue();
+ await page.mouse.move(x,y);await page.mouse.down();
+ await page.mouse.move(x+54,y,{steps:5});
+ await expect(lane).toHaveClass(/move-active/);
+ const visual=await lane.evaluate(el=>({
+  px:parseFloat(el.style.getPropertyValue('--phase-drag-preview')),
+  transform:getComputedStyle(el.querySelector('.wave')).transform
+ }));
+ expect(Math.abs(visual.px)).toBeGreaterThan(10);
+ expect(visual.transform).not.toBe('none');
+ expect(await page.locator('#offset-0').inputValue()).toBe(original);
+ await page.mouse.up();
+ expect(Number(await page.locator('#offset-0').inputValue())).not.toBe(Number(original));
+});
