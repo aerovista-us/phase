@@ -32,15 +32,16 @@ test('equal-power crossfade ripples later clips and preserves sources',()=>{
  assert.equal(result.find(x=>x.id==='later').masterStart,4.95);
  assert.equal(result.find(x=>x.id==='out').fadeOutSec,.05);
  assert.equal(result.find(x=>x.id==='in').fadeInSec,.05);
- assert.equal(result.find(x=>x.id==='out').fadeCurve,'equalPower');
+ assert.equal(result.find(x=>x.id==='out').fadeOutCurve,'equalPower');
+ assert.equal(result.find(x=>x.id==='in').fadeInCurve,'equalPower');
  assert.ok(Math.abs(projectDuration(result)-6.95)<1e-6);
  assert.equal(before[1].masterStart,2);
 });
 test('equal power reaches 0.707 gain on each source at midpoint',()=>{
  const f=autoCrossfade([a,b,c],'out',.05);
  const out=f.find(x=>x.id==='out'),incoming=f.find(x=>x.id==='in');
- assert.ok(Math.abs(envelopeGainAtLocal(1.975,{fadeOutStart:out.sourceOut-.05,fadeOutEnd:out.sourceOut,fadeCurve:out.fadeCurve})-Math.SQRT1_2)<.0001);
- assert.ok(Math.abs(envelopeGainAtLocal(2.025,{fadeInStart:incoming.sourceIn,fadeInEnd:incoming.sourceIn+.05,fadeCurve:incoming.fadeCurve})-Math.SQRT1_2)<.0001);
+ assert.ok(Math.abs(envelopeGainAtLocal(1.975,{fadeOutStart:out.sourceOut-.05,fadeOutEnd:out.sourceOut,fadeOutCurve:out.fadeOutCurve})-Math.SQRT1_2)<.0001);
+ assert.ok(Math.abs(envelopeGainAtLocal(2.025,{fadeInStart:incoming.sourceIn,fadeInEnd:incoming.sourceIn+.05,fadeInCurve:incoming.fadeInCurve})-Math.SQRT1_2)<.0001);
  const pts=envelopePoints({offset:0,fadeInStart:0,fadeInEnd:.05,fadeCurve:'equalPower'},0,.06);
  assert.ok(pts.length>=20);
 });
@@ -50,6 +51,14 @@ test('refuse gap, duplicate crossfade and oversize overlap',()=>{
  assert.throws(()=>autoCrossfade([a,b],'out',.6),/between/);
  const f=autoCrossfade([a,b],'out',.05);
  assert.throws(()=>autoCrossfade(f,'out',.05),/adjacent|already/);
+});
+test('consecutive joins preserve independent incoming and outgoing curves',()=>{
+ const first=autoCrossfade([a,b,c],'out',.05);
+ const second=autoCrossfade(first,'in',.04);
+ const middle=second.find(x=>x.id==='in');
+ assert.equal(middle.fadeInCurve,'equalPower');
+ assert.equal(middle.fadeOutCurve,'equalPower');
+ assert.ok(Math.abs(second.find(x=>x.id==='later').masterStart-4.91)<.00003);
 });
 test('outgoing snap ripples and incoming slip preserves timeline length',()=>{
  const snapped=snapOutgoingEnd([a,b,c],'out',1.999);

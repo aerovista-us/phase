@@ -124,7 +124,7 @@ async function withBuffers(){const used=[...new Set(clips.map(c=>c.sourceId))];
  if(sum>450*1024*1024)throw Error('Source decode estimate exceeds 450 MB. Reduce loaded sources or make shorter assemblies.');
  for(const id of used)await bufferFor(sourceById(id));
 }
-const items=()=>clips.map(c=>({buffer:sourceById(c.sourceId).buffer,offset:c.masterStart-c.sourceIn,sourceIn:c.sourceIn,sourceOut:c.sourceOut,gain:Math.pow(10,c.gainDb/20),group:'master',fadeInStart:c.sourceIn,fadeInEnd:c.sourceIn+c.fadeInSec,fadeOutStart:c.sourceOut-c.fadeOutSec,fadeOutEnd:c.sourceOut,fadeCurve:c.fadeCurve||'linear'}));
+const items=()=>clips.map(c=>({buffer:sourceById(c.sourceId).buffer,offset:c.masterStart-c.sourceIn,sourceIn:c.sourceIn,sourceOut:c.sourceOut,gain:Math.pow(10,c.gainDb/20),group:'master',fadeInStart:c.sourceIn,fadeInEnd:c.sourceIn+c.fadeInSec,fadeOutStart:c.sourceOut-c.fadeOutSec,fadeOutEnd:c.sourceOut,fadeInCurve:c.fadeInCurve||c.fadeCurve||'linear',fadeOutCurve:c.fadeOutCurve||c.fadeCurve||'linear'}));
 async function playMaster(time=null,windowEnd=null){
  stop();if(!clips.length){status('Add clips to master first.',true);return}
  const t=Math.max(0,time??(Number($('playhead').value)||0));const context=aud();await context.resume();
@@ -135,7 +135,7 @@ async function playMaster(time=null,windowEnd=null){
    for(const c of list){const s=sourceById(c.sourceId),start=Math.max(t,c.masterStart),end=Math.min(clipEnd(c),windowEnd??Infinity);
      if(end<=start)continue;const b=context.createBufferSource(),g=context.createGain();
      b.buffer=s.buffer;b.connect(g).connect(context.destination);
-     const w={offset:c.masterStart-c.sourceIn,fadeInStart:c.sourceIn,fadeInEnd:c.sourceIn+c.fadeInSec,fadeOutStart:c.sourceOut-c.fadeOutSec,fadeOutEnd:c.sourceOut,fadeCurve:c.fadeCurve||'linear'};
+     const w={offset:c.masterStart-c.sourceIn,fadeInStart:c.sourceIn,fadeInEnd:c.sourceIn+c.fadeInSec,fadeOutStart:c.sourceOut-c.fadeOutSec,fadeOutEnd:c.sourceOut,fadeInCurve:c.fadeInCurve||c.fadeCurve||'linear',fadeOutCurve:c.fadeOutCurve||c.fadeCurve||'linear'};
      applyGainEnvelope(g.gain,.88*Math.pow(10,c.gainDb/20),w,start,end,base+start-t);
      b.start(base+start-t,c.sourceIn+start-c.masterStart,end-start);live.push(b);if(end>latest){latest=end;last=b}
    }
@@ -194,9 +194,9 @@ async function snapAtJoin(kind){
    const buffer=await bufferFor(s);
    const snap=findQuietZeroCrossing(buffer,kind==='out'?a.sourceOut:b.sourceIn,12);
    if(!snap){status('No nearby zero crossing detected; join was not changed.',true);return}
-   snapshot();
-   clips=kind==='out'?snapOutgoingEnd(clips,a.id,snap.timeSec):
+   const proposed=kind==='out'?snapOutgoingEnd(clips,a.id,snap.timeSec):
      slipIncomingStart(clips,a.id,snap.timeSec,s.duration);
+   snapshot();clips=proposed;
    s.buffer=null;
    updateUI();
    status('Applied '+kind.toUpperCase()+' snap: '+snap.shiftMs.toFixed(3)+' ms, nearby PCM RMS '+snap.rmsAtBoundary+'. Undo available.');

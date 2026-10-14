@@ -42,14 +42,14 @@ export function autoCrossfade(clips,id,seconds=.05){
  if(!Number.isFinite(duration)||duration<.005||duration>.25)throw Error('Crossfade must be between 5 and 250 ms');
  const limit=Math.min(clipDuration(a),clipDuration(b))*.45;
  if(duration>limit)throw Error('Crossfade is too long for these clips');
- if(a.fadeCurve==='equalPower'||b.fadeCurve==='equalPower')throw Error('Crossfade already set; undo before applying again');
+ if((a.fadeOutCurve||a.fadeCurve)==='equalPower'||(b.fadeInCurve||b.fadeCurve)==='equalPower')throw Error('Crossfade already set at this join; undo before applying again');
  // Shift the next and later clips left, preserving downstream relationships.
  const shifted=clips.map(c=>{
-   if(c.id===a.id)return {...c,fadeOutSec:duration,fadeCurve:'equalPower'};
+   if(c.id===a.id)return {...c,fadeOutSec:duration,fadeOutCurve:'equalPower'};
    if(c.masterStart>=b.masterStart-EPS){
      const t=quantize(c.masterStart-duration,c.sourceRate||48000);
      if(t<0)throw Error('Cannot move timeline before zero');
-     return {...c,masterStart:t,...(c.id===b.id?{fadeInSec:duration,fadeCurve:'equalPower'}:{})};
+     return {...c,masterStart:t,...(c.id===b.id?{fadeInSec:duration,fadeInCurve:'equalPower'}:{})};
    }
    return c;
  });
@@ -57,7 +57,7 @@ export function autoCrossfade(clips,id,seconds=.05){
 }
 export function snapOutgoingEnd(clips,id,timeSec){
  const {a,b}=neighbors(clips,id);
- if(a.fadeCurve==='equalPower'||b.fadeCurve==='equalPower')throw Error('Undo crossfade before adjusting endpoints');
+ if((a.fadeOutCurve||a.fadeCurve)==='equalPower'||(b.fadeInCurve||b.fadeCurve)==='equalPower')throw Error('Undo crossfade before adjusting endpoints');
  const end=quantize(timeSec,a.sourceRate||48000),shift=end-a.sourceOut;
  if(!Number.isFinite(end)||end<=a.sourceIn||Math.abs(shift)>.05)throw Error('Snap exceeds valid source range');
  // The following clips ripple by precisely the number of samples added/removed.
@@ -74,7 +74,7 @@ export function snapOutgoingEnd(clips,id,timeSec){
 }
 export function slipIncomingStart(clips,id,newIn,sourceDuration){
  const {b}=neighbors(clips,id),sr=b.sourceRate||48000;
- if(b.fadeCurve==='equalPower')throw Error('Undo crossfade before slip editing');
+ if((b.fadeInCurve||b.fadeCurve)==='equalPower')throw Error('Undo crossfade before slip editing');
  const offset=quantize(newIn,sr)-b.sourceIn;
  if(Math.abs(offset)>.05||b.sourceIn+offset<0||b.sourceOut+offset>sourceDuration)
    throw Error('Incoming source cannot slip within available audio');
