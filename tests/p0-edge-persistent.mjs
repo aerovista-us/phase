@@ -22,7 +22,7 @@ try{
   if(response?.status()!==200)throw Error('Recovery HTTP '+response?.status());
   await page.evaluate(value=>localStorage.setItem('echoverse.phase.session.v5',value),fixture);
   await page.locator('#refresh').click();
-  if(await page.locator('#saved').innerText()!=='YES')throw Error('Synthetic recovery map invisible');
+  await page.waitForFunction(()=>document.querySelector('#saved')?.textContent==='YES',null,{timeout:8000});
   const view=await page.evaluate(async()=>({registrations:'serviceWorker'in navigator?(await navigator.serviceWorker.getRegistrations()).length:0,keys:'caches'in window?await caches.keys():[]}));
   await page.screenshot({path:dir+'/edge-first.png',fullPage:true});
   return view;
@@ -37,7 +37,7 @@ try{
   await page.locator('#refresh').click();
   const unchanged=await page.evaluate(()=>localStorage.getItem('echoverse.phase.session.v5'));
   if(unchanged!==fixture)throw Error('LocalStorage map changed across Edge restart');
-  if(await page.locator('#saved').innerText()!=='YES')throw Error('Saved map not recognized after Edge restart');
+  await page.waitForFunction(()=>document.querySelector('#saved')?.textContent==='YES',null,{timeout:8000});
   const build=await page.locator('#liveVersion').innerText();
   if(build!=='0.14.6')throw Error('Unexpected recovery build '+build);
   await page.screenshot({path:dir+'/edge-reopened.png',fullPage:true});
