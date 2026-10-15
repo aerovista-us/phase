@@ -10,6 +10,10 @@ export function appendRuntimeEvent(event){try{const list=readRuntimeLog();list.p
 export function bootState(){try{return safeParse(sessionStorage.getItem(BOOT_KEY),null)}catch{return null}}
 function setBoot(state,extra={}){try{sessionStorage.setItem(BOOT_KEY,JSON.stringify({state,at:now(),version:version(),path:location.pathname,...extra}))}catch{}}
 
+// The HTML entry and diagnostics imports can resolve to distinct ESM URLs.
+// Side effects must run once per document even if the module loads twice.
+if(!window.__phaseRuntimeGuardInstalled){
+window.__phaseRuntimeGuardInstalled=true;
 const previous=bootState();
 if(previous?.state==='starting')appendRuntimeEvent({type:'previous_boot_incomplete',message:`Previous Phase launch did not reach ready state (${previous.version||'unknown version'})`,previous});
 setBoot('starting');
@@ -42,3 +46,5 @@ window.addEventListener('pagehide',()=>{
   if(b?.state==='ready')setBoot('closed');
   else if(b?.state==='starting')setBoot('navigated_before_ready');
 });
+
+}
