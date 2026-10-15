@@ -41,3 +41,18 @@ test('intentionally leaving after ready still marks boot closed',async({page})=>
   const state=await page.evaluate(key=>JSON.parse(sessionStorage.getItem(key)||'null'),BOOT);
   expect(state?.state).toBe('closed');
 });
+
+test('runtime guard side effects run once even when imported with distinct ESM URLs',async({page})=>{
+  test.setTimeout(15000);
+  await page.goto(base+'/',{waitUntil:'domcontentloaded'});
+  const before=await page.evaluate(log=>JSON.parse(localStorage.getItem(log)||'[]').length,LOG);
+  const boot=await page.evaluate(key=>JSON.parse(sessionStorage.getItem(key)||'null'),BOOT);
+  await page.evaluate(async()=>await import('./js/runtime-guard.js?diagnostic-double-import=1'));
+  const after=await page.evaluate(({log,boot})=>({
+    entries:JSON.parse(localStorage.getItem(log)||'[]').length,
+    state:JSON.parse(sessionStorage.getItem(boot)||'null')
+  }),{log:LOG,boot:BOOT});
+  expect(after.entries).toBe(before);
+  expect(after.state.at).toBe(boot.at);
+  expect(after.state.state).toBe(boot.state);
+});
