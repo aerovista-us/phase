@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'tests/p0-public-acceptance.mjs'
+      - 'tests/p0-edge-persistent.mjs'
       - '.github/workflows/p0-public-acceptance.yml'
   workflow_dispatch:
 
@@ -29,10 +30,17 @@ jobs:
         run: node tests/p0-public-acceptance.mjs
         env:
           PHASE_PUBLIC_URL: https://phase.aerovista.us
+      - name: Install Microsoft Edge for regular-profile acceptance
+        run: npx playwright install --with-deps msedge
+      - name: Exercise synthetic persisted map across Edge restart
+        run: node tests/p0-edge-persistent.mjs
       - name: Preserve public domain evidence (even on failure)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: phase-p0-public-acceptance-${{ github.run_id }}
-          path: test-results/p0-public-acceptance/
+          path: |
+            test-results/p0-public-acceptance/
+            test-results/p0-edge-persistent/*.json
+            test-results/p0-edge-persistent/*.png
           if-no-files-found: warn
