@@ -60,11 +60,11 @@ try{
       channel:b.channel,workflowRun:b.workflowRun,builtAt:b.builtAt};
     assert(b.validated===true,'Production build is not marked validated');
     assert(typeof b.commit==='string'&&/^[a-f0-9]{40}$/.test(b.commit),'Invalid build commit');
-    assert(/^0\\.14\\.6$/.test(b.version),'Expected Phase 0.14.6, received '+b.version);
+    assert(/^0\.14\.6$/.test(b.version),'Expected Phase 0.14.6, received '+b.version);
     try{
      const out=execFileSync('git',['ls-remote','https://github.com/aerovista-us/phase.git',
       'refs/heads/main'],{encoding:'utf8',timeout:15000});
-     record.expectedMainCommit=out.trim().split(/\\s/)[0];
+     record.expectedMainCommit=out.trim().split(/\s/)[0];
      record.buildMatchesMain=record.expectedMainCommit===b.commit;
      assert(record.buildMatchesMain,'Deployed Pages commit differs from current main head');
     }catch(e){if(e?.message?.includes('Deployed Pages'))throw e;
@@ -72,7 +72,7 @@ try{
     }
    }
    if(name==='serviceWorker'){
-    const m=contents.match(/echoverse-phase-shell-v\\d+/);
+    const m=contents.match(/echoverse-phase-shell-v\d+/);
     record.workerCache=m?.[0]||null;
     assert(record.workerCache==='echoverse-phase-shell-v50','Unexpected worker cache generation');
    }
