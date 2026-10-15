@@ -19,5 +19,26 @@ else timing.domContentLoadedMs=performance.now();
 window.addEventListener('load',()=>{timing.loadMs=performance.now()},{once:true});
 window.addEventListener('error',event=>appendRuntimeEvent({type:'error',message:String(event.message||'Window error'),source:event.filename||null,line:event.lineno||null,column:event.colno||null}));
 window.addEventListener('unhandledrejection',event=>{const reason=event.reason;appendRuntimeEvent({type:'unhandledrejection',message:String(reason?.message||reason||'Unhandled promise rejection'),stack:typeof reason?.stack==='string'?reason.stack.slice(0,3000):null})});
-window.addEventListener('pageshow',()=>setTimeout(()=>{timing.runtimeReadyMs=performance.now();setBoot('ready',{readyMs:Number(timing.runtimeReadyMs.toFixed(1))});window.dispatchEvent(new CustomEvent('phase:runtime-ready'))},2500),{once:true});
-window.addEventListener('pagehide',()=>{const b=bootState();if(b?.state==='ready')setBoot('closed')});
+// An intentional reload/navigation can occur before the 2500 ms ready timer.
+// Mark that transition explicitly so the next launch is not falsely called a
+// crashed or incomplete boot. An actual interruption without pagehide retains
+// the "starting" state and remains diagnostically visible.
+let readyTimer=null,pageHidden=false;
+window.addEventListener('pageshow',()=>{
+  pageHidden=false;
+  if(readyTimer!==null)clearTimeout(readyTimer);
+  readyTimer=setTimeout(()=>{
+    readyTimer=null;
+    if(pageHidden)return;
+    timing.runtimeReadyMs=performance.now();
+    setBoot('ready',{readyMs:Number(timing.runtimeReadyMs.toFixed(1))});
+    window.dispatchEvent(new CustomEvent('phase:runtime-ready'));
+  },2500);
+},{once:true});
+window.addEventListener('pagehide',()=>{
+  pageHidden=true;
+  if(readyTimer!==null){clearTimeout(readyTimer);readyTimer=null}
+  const b=bootState();
+  if(b?.state==='ready')setBoot('closed');
+  else if(b?.state==='starting')setBoot('navigated_before_ready');
+});
